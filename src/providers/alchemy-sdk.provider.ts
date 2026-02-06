@@ -1,0 +1,240 @@
+import { Alchemy, Network, GetNftsForOwnerOptions } from 'alchemy-sdk';
+import { logger } from '../utils/logger';
+
+export interface NFTPortfolioItem {
+  contractAddress: string;
+  name: string;
+  symbol: string;
+  tokenType: string;
+  count: number;
+  floorPrice: number | null;
+  estimatedValueETH: number | null;
+  image: string | null;
+}
+
+/**
+ * AlchemySDKProvider - Using official Alchemy SDK for advanced NFT features
+ * Handles: NFT portfolio, floor prices, collection metadata
+ */
+export class AlchemySDKProvider {
+  private alchemy: Alchemy;
+  private static instance: AlchemySDKProvider;
+
+  private constructor(apiKey: string, networkName: string = 'eth-mainnet') {
+    // Map network name to Alchemy SDK Network enum
+    const network = this.mapNetworkName(networkName);
+
+    const config = {
+      apiKey: apiKey,
+      network: network,
+      maxRetries: 3,
+    };
+
+    this.alchemy = new Alchemy(config);
+    logger.info(`AlchemySDKProvider initialized for network ${networkName}`);
+  }
+
+  /**
+   * Get singleton instance
+   */
+  static getInstance(apiKey: string, networkName: string = 'eth-mainnet'): AlchemySDKProvider {
+    if (!AlchemySDKProvider.instance) {
+      AlchemySDKProvider.instance = new AlchemySDKProvider(apiKey, networkName);
+    }
+    return AlchemySDKProvider.instance;
+  }
+
+  /**
+   * Map network name string to Alchemy SDK Network enum
+   */
+  private mapNetworkName(networkName: string): Network {
+    const networkMap: { [key: string]: Network } = {
+      'eth-mainnet': Network.ETH_MAINNET,
+      'eth-sepolia': Network.ETH_SEPOLIA,
+      'arbitrum-mainnet': Network.ARB_MAINNET,
+      'arbitrum-sepolia': Network.ARB_SEPOLIA,
+    };
+
+    return networkMap[networkName.toLowerCase()] || Network.ETH_MAINNET;
+  }
+
+  /**
+   * Get all NFTs owned by an address
+   */
+  async getNFTsForOwner(
+    ownerAddress: string,
+    options?: GetNftsForOwnerOptions
+  ): Promise<{ totalCount: number; ownedNfts: any[] }> {
+    try {
+      logger.info(`Fetching NFTs for owner ${ownerAddress}`);
+
+      const response = await this.alchemy.nft.getNftsForOwner(ownerAddress, options);
+
+      logger.info(`Found ${response.ownedNfts.length} NFTs for owner ${ownerAddress}`);
+
+      return {
+        totalCount: response.totalCount,
+        ownedNfts: response.ownedNfts,
+      };
+    } catch (error) {
+      logger.error(`Failed to get NFTs for owner ${ownerAddress}`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get floor price for a collection
+   */
+  async getFloorPrice(contractAddress: string): Promise<number | null> {
+    try {
+      logger.info(`Fetching floor price for contract ${contractAddress}`);
+
+      const response = await this.alchemy.nft.getFloorPrice(contractAddress);
+
+      // Check if response is successful and has floor price data
+      if (response && 'openSea' in response && response.openSea) {
+        const marketplace = response.openSea as any;
+        if (marketplace.floorPrice) {
+          const floorPrice = parseFloat(marketplace.floorPrice.toString());
+          logger.info(`Floor price for ${contractAddress}: ${floorPrice} ETH`);
+          return floorPrice;
+        }
+      }
+
+      logger.warn(`No floor price found for contract ${contractAddress}`);
+      return null;
+    } catch (error) {
+      logger.warn(`Failed to get floor price for ${contractAddress}`, error);
+      return null;
+    }
+  }
+
+  /**
+   * Get collection metadata
+   */
+  async getCollectionMetadata(contractAddress: string): Promise<any> {
+    try {
+      logger.info(`Fetching metadata for contract ${contractAddress}`);
+
+      const response = await this.alchemy.nft.getContractMetadata(contractAddress);
+
+      logger.info(`Got metadata for contract ${contractAddress}: ${response.name}`);
+
+      return response;
+    } catch (error) {
+      logger.error(`Failed to get collection metadata for ${contractAddress}`, error);
+      return null;
+    }
+  }
+
+  /**
+   * Batch processing helper - get NFTs for multiple owners
+   */
+  async batchGetNFTsForOwners(
+    addresses: string[],
+    batchSize: number = 10,
+    delayMs: number = 200
+  ): Promise<Map<string, NFTPortfolioItem[]>> {
+    const results = new Map<string, NFTPortfolioItem[]>();
+
+    const chunks = this.chunkArray(addresses, batchSize);
+
+    for (let i = 0; i < chunks.length; i++) {
+      const chunk = chunks[i];
+      logger.info(`Processing batch ${i + 1}/${chunks.length} (${chunk.length} addresses)`);
+
+      const batchResults = await Promise.all(
+        chunk.map(async (address) => {
+          try {
+            const nfts = await this.getNFTsForOwner(address);
+            const portfolio = await this.buildPortfolio(nfts.ownedNfts);
+            return { address, portfolio };
+          } catch (error) {
+            logger.warn(`Failed to process ${address}`, error);
+            return { address, portfolio: [] };
+          }
+        })
+      );
+
+      batchResults.forEach(({ address, portfolio }) => {
+        results.set(address, portfolio);
+      });
+
+      // Delay between batches for rate limiting
+      if (i < chunks.length - 1) {
+        await this.sleep(delayMs);
+      }
+    }
+
+    return results;
+  }
+
+  /**
+   * Build portfolio structure from NFTs array
+   */
+  private async buildPortfolio(nfts: any[]): Promise<NFTPortfolioItem[]> {
+    const collections = new Map<string, NFTPortfolioItem>();
+
+    for (const nft of nfts) {
+      const contractAddress = nft.contract.address;
+
+      if (!collections.has(contractAddress)) {
+        collections.set(contractAddress, {
+          contractAddress,
+          name: nft.contract.name || 'Unknown',
+          symbol: nft.contract.symbol || '',
+          tokenType: nft.contractMetadata?.tokenType || 'ERC721',
+          count: 0,
+          floorPrice: null,
+          estimatedValueETH: null,
+          image: nft.contract.openSeaMetadata?.imageUrl || null,
+        });
+      }
+
+      const collection = collections.get(contractAddress)!;
+      collection.count++;
+    }
+
+    // Get floor prices for each collection
+    for (const [contractAddress, collection] of collections) {
+      collection.floorPrice = await this.getFloorPrice(contractAddress);
+      if (collection.floorPrice) {
+        collection.estimatedValueETH = collection.count * collection.floorPrice;
+      }
+    }
+
+    return Array.from(collections.values());
+  }
+
+  /**
+   * Helper: split array into chunks
+   */
+  private chunkArray<T>(array: T[], size: number): T[][] {
+    const chunks: T[][] = [];
+    for (let i = 0; i < array.length; i += size) {
+      chunks.push(array.slice(i, i + size));
+    }
+    return chunks;
+  }
+
+  /**
+   * Helper: sleep for given milliseconds
+   */
+  private sleep(ms: number): Promise<void> {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+  }
+}
+
+/**
+ * Get singleton instance of AlchemySDKProvider
+ */
+export function getAlchemySDKProvider(): AlchemySDKProvider {
+  const apiKey = process.env.ALCHEMY_API_KEY;
+  const network = process.env.ALCHEMY_NETWORK || 'eth-mainnet';
+
+  if (!apiKey) {
+    throw new Error('ALCHEMY_API_KEY environment variable is required');
+  }
+
+  return AlchemySDKProvider.getInstance(apiKey, network);
+}
