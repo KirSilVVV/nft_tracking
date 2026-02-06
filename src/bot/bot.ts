@@ -138,7 +138,8 @@ export class NFTBot {
     const chatId = msg.chat.id;
 
     try {
-      // Fetch data
+      // Fetch recent data only (last 10,000 blocks = ~2.3 days)
+      // This avoids excessive API calls and rate limiting for historical data
       const events = await this.blockchainService.getAllTransferEvents(0);
       const allHolders = this.analyticsService.buildHoldersList(events);
       const topHolders = this.analyticsService.getTopHolders(allHolders, 50);
