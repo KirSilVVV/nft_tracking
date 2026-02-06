@@ -39,9 +39,19 @@ class NFTAnalyticsApp {
     });
 
     // Start HTTP server on port 3000
-    const port = process.env.PORT || '3000';
-    this.httpServer.listen(port, () => {
+    const port = parseInt(process.env.PORT || '3000', 10);
+
+    const server = this.httpServer.listen(port, '0.0.0.0', () => {
       logger.info(`✅ HTTP server listening on port ${port}`);
+    });
+
+    // Handle errors
+    server.on('error', (err: any) => {
+      if (err.code === 'EADDRINUSE') {
+        logger.error(`❌ Port ${port} is already in use!`);
+      } else {
+        logger.error(`❌ Server error: ${err.message}`);
+      }
     });
   }
 

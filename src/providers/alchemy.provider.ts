@@ -61,18 +61,22 @@ export class AlchemyProvider {
         ],
       };
 
+      logger.debug(`Requesting logs from ${fromBlock} to ${toBlock} for ${address}`);
+
       const response = await this.client.post<AlchemyResponse<LogEvent[]>>(
         `/${this.apiKey}`,
         payload
       );
 
       if (response.data.error) {
+        logger.error(`Alchemy API error: Code ${response.data.error.code} - ${response.data.error.message}`);
         throw new Error(`Alchemy error: ${response.data.error.message}`);
       }
 
+      logger.debug(`Got ${response.data.result?.length || 0} logs`);
       return response.data.result;
-    } catch (error) {
-      logger.error('Failed to get logs from Alchemy', error);
+    } catch (error: any) {
+      logger.error(`Failed to get logs from Alchemy: ${error.message}`);
       throw error;
     }
   }
@@ -164,6 +168,10 @@ export function getAlchemyProvider(): AlchemyProvider {
     if (!apiKey) {
       throw new Error('ALCHEMY_API_KEY environment variable is required');
     }
+
+    // Log API key validity (first 10 chars only for security)
+    const keyPrefix = apiKey.substring(0, 10);
+    logger.info(`🔑 Initializing Alchemy provider with API key: ${keyPrefix}... on network: ${network}`);
 
     instance = new AlchemyProvider(apiKey, network);
   }
