@@ -76,7 +76,13 @@ export class AlchemyProvider {
       logger.debug(`Got ${response.data.result?.length || 0} logs`);
       return response.data.result;
     } catch (error: any) {
-      logger.error(`Failed to get logs from Alchemy: ${error.message}`);
+      // Try to extract Alchemy error message from response
+      const alchemyError = error.response?.data?.error?.message || error.message;
+      logger.error(`❌ Alchemy getLogs failed: ${alchemyError}`);
+      logger.error(`Request params: fromBlock=${fromBlock}, toBlock=${toBlock}, address=${address}`);
+      if (error.response?.data?.error) {
+        logger.error(`Alchemy error code: ${error.response.data.error.code}`);
+      }
       throw error;
     }
   }
