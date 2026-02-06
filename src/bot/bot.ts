@@ -29,10 +29,16 @@ export class NFTBot {
     this.setupCallbackQueries();
 
     // Handle polling errors (e.g., 409 Conflict from multiple instances)
+    let conflictRetries = 0;
     this.bot.on('polling_error', (error: any) => {
       if (error.code === 'ETELEGRAM' && error.message?.includes('409')) {
-        logger.error('❌ Bot conflict detected - another instance is running. Shutting down...');
-        process.exit(1);
+        conflictRetries++;
+        logger.warn(`⚠️ Bot conflict detected (attempt ${conflictRetries}). Another instance may still be running. Retrying...`);
+        // Don't exit immediately, just log and let it retry
+        if (conflictRetries > 10) {
+          logger.error('❌ Too many conflict errors. Shutting down.');
+          process.exit(1);
+        }
       } else {
         logger.error('Polling error:', error);
       }

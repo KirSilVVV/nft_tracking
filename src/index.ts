@@ -73,6 +73,11 @@ class NFTAnalyticsApp {
 
       logger.info('🚀 Starting NFT Tracking Bot...');
 
+      // Wait 10 seconds to allow old bot instance to fully shut down
+      // This prevents 409 Conflict errors from Telegram polling
+      logger.info('⏳ Waiting for old bot instance to shut down...');
+      await sleep(10000);
+
       // Initialize services
       const blockchainService = getBlockchainService();
       const analyticsService = getAnalyticsService();
