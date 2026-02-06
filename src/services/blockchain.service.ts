@@ -59,10 +59,11 @@ export class BlockchainService {
 
   /**
    * Fetch logs in chunks to avoid exceeding Alchemy's block range limit
-   * Alchemy allows up to 1000 block range per request
+   * Free tier: up to 10 blocks per request
+   * PAYG tier: up to 10,000 blocks per request (we use 10 for compatibility)
    */
   private async fetchLogsInChunks(fromBlock: number, toBlock: number): Promise<Transaction[]> {
-    const CHUNK_SIZE = 1000; // Conservative limit for Alchemy API
+    const CHUNK_SIZE = 10; // Free tier limit (works with PAYG too)
     const transactions: Transaction[] = [];
 
     for (let chunk = fromBlock; chunk < toBlock; chunk += CHUNK_SIZE) {
