@@ -265,4 +265,111 @@ Token: \`#${tokenId}\`
       ],
     };
   }
+
+  /**
+   * Format top whales from Whale API response
+   */
+  static formatTopWhales(whales: any[]): string {
+    let message = `🐋 *Топ 10 Китов MAYC*\n\n`;
+
+    whales.slice(0, 10).forEach((whale, index) => {
+      const addr = whale.address || '0x...';
+      const shortAddr = `${addr.slice(0, 6)}...${addr.slice(-4)}`;
+      const count = whale.nftCount || 0;
+      const percentage = ((count / 10000) * 100).toFixed(2); // Approximate % of 10k collection
+      const value = whale.estimatedValueETH || 0;
+
+      message += `${index + 1}. \`${shortAddr}\`\n`;
+      message += `   📦 NFT: ${count} (${percentage}%)\n`;
+      message += `   💰 Стоимость: ${value.toFixed(2)} ETH\n`;
+
+      if (whale.ensName) {
+        message += `   📛 ENS: ${whale.ensName}\n`;
+      }
+      message += `\n`;
+    });
+
+    return message;
+  }
+
+  /**
+   * Format extended top whales list
+   */
+  static formatTopWhalesExtended(whales: any[]): string {
+    let message = `🐋 *Топ 50 Китов MAYC*\n\n`;
+
+    whales.forEach((whale, index) => {
+      const addr = whale.address || '0x...';
+      const shortAddr = `${addr.slice(0, 6)}...${addr.slice(-4)}`;
+      const count = whale.nftCount || 0;
+
+      message += `${index + 1}. \`${shortAddr}\` - ${count} NFT\n`;
+
+      if ((index + 1) % 10 === 0) {
+        message += `\n`;
+      }
+    });
+
+    return message;
+  }
+
+  /**
+   * Format detailed whale info
+   */
+  static formatWhaleDetails(whale: any): string {
+    const addr = whale.address || '0x...';
+    const count = whale.nftCount || 0;
+    const value = whale.estimatedValueETH || 0;
+    const ethBalance = whale.ethBalance || 0;
+    const tokenIds = whale.nftIds?.slice(0, 10) || [];
+
+    let message = `🐋 *Детали Кита*\n\n`;
+    message += `*Адрес:* \`${addr}\`\n`;
+
+    if (whale.ensName) {
+      message += `*ENS:* ${whale.ensName}\n`;
+    }
+
+    message += `\n📊 *Статистика*\n`;
+    message += `NFT: ${count}\n`;
+    message += `Стоимость (ETH): ${value.toFixed(2)}\n`;
+    message += `Баланс ETH: ${ethBalance.toFixed(4)}\n`;
+    message += `Рейтинг: #${whale.rank}\n`;
+
+    if (tokenIds.length > 0) {
+      message += `\n*Примеры токенов:* ${tokenIds.join(', ')}`;
+      if (whale.nftIds && whale.nftIds.length > 10) {
+        message += ` ... и ещё ${whale.nftIds.length - 10}`;
+      }
+    }
+
+    return message;
+  }
+
+  /**
+   * Format collection statistics
+   */
+  static formatCollectionStats(analytics: any): string {
+    const stats = analytics.statistics || {};
+    const dist = analytics.distribution || {};
+
+    let message = `📊 *Статистика MAYC Коллекции*\n\n`;
+
+    message += `*Общее*\n`;
+    message += `Всего держателей: ${stats.totalHolders || 0}\n`;
+    message += `Всего NFT: ${stats.totalNFTs || 0}\n`;
+    message += `Среднее на держателя: ${stats.averagePerHolder?.toFixed(2) || 0}\n`;
+    message += `Медиана: ${stats.medianPerHolder || 0}\n`;
+
+    message += `\n*Распределение*\n`;
+    message += `1 NFT: ${dist.single || 0}\n`;
+    message += `2-5 NFT: ${dist.small || 0}\n`;
+    message += `6-10 NFT: ${dist.medium || 0}\n`;
+    message += `10+ NFT (киты): ${dist.whales || 0}\n`;
+
+    message += `\n*Концентрация*\n`;
+    message += `Топ 90 владеют: ${analytics.whale90Concentration?.toFixed(2) || 0}%\n`;
+
+    return message;
+  }
 }

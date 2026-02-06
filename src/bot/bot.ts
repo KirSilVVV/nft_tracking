@@ -2,6 +2,7 @@ import TelegramBot from 'node-telegram-bot-api';
 import { getAnalyticsService } from '../services/analytics.service';
 import { getBlockchainService } from '../services/blockchain.service';
 import { getCacheService } from '../services/cache.service';
+import { getWhaleService } from '../services/whale.service';
 import { TelegramFormatter } from '../utils/telegram.formatter';
 import { logger } from '../utils/logger';
 import { Holder } from '../models/holder.model';
@@ -20,6 +21,7 @@ export class NFTBot {
   private analyticsService = getAnalyticsService();
   private blockchainService = getBlockchainService();
   private cacheService = getCacheService();
+  private whaleService = getWhaleService();
   private subscriptions: Map<number, UserSubscription> = new Map();
   private userPages: Map<number, number> = new Map();
 
@@ -110,6 +112,43 @@ export class NFTBot {
     this.bot.onText(/\/subscribe/, (msg) => {
       logger.info('✅ /subscribe command handler triggered');
       this.handleSubscribe(msg).catch(err => logger.error('Unhandled error in handleSubscribe', err));
+    });
+
+    // /top command - Top 10 whales
+    this.bot.onText(/\/top\b/, (msg) => {
+      logger.info('✅ /top command handler triggered');
+      this.handleTop(msg).catch(err => logger.error('Unhandled error in handleTop', err));
+    });
+
+    // /top50 command - Top 50 whales
+    this.bot.onText(/\/top50/, (msg) => {
+      logger.info('✅ /top50 command handler triggered');
+      this.handleTop50(msg).catch(err => logger.error('Unhandled error in handleTop50', err));
+    });
+
+    // /whale <address> command - Search specific whale
+    this.bot.onText(/\/whale\s+(\S+)/, (msg, match) => {
+      logger.info('✅ /whale command handler triggered');
+      const address = match?.[1] || '';
+      this.handleWhaleSearch(msg, address).catch(err => logger.error('Unhandled error in handleWhaleSearch', err));
+    });
+
+    // /floor command - Floor price
+    this.bot.onText(/\/floor/, (msg) => {
+      logger.info('✅ /floor command handler triggered');
+      this.handleFloor(msg).catch(err => logger.error('Unhandled error in handleFloor', err));
+    });
+
+    // /refresh command - Admin cache refresh
+    this.bot.onText(/\/refresh/, (msg) => {
+      logger.info('✅ /refresh command handler triggered');
+      this.handleRefresh(msg).catch(err => logger.error('Unhandled error in handleRefresh', err));
+    });
+
+    // /stats command - Collection statistics
+    this.bot.onText(/\/stats/, (msg) => {
+      logger.info('✅ /stats command handler triggered');
+      this.handleStats(msg).catch(err => logger.error('Unhandled error in handleStats', err));
     });
 
     logger.info('✅ All commands registered successfully');
@@ -621,6 +660,201 @@ export class NFTBot {
     }
 
     return subscribers;
+  }
+
+  /**
+   * Handle /top command - Top 10 whales
+   */
+  private async handleTop(msg: TelegramBot.Message): Promise<void> {
+    const chatId = msg.chat.id;
+
+    try {
+      const statusMsg = await this.bot.sendMessage(chatId, '⏳ Загружаю топ 10 китов...');
+
+      const response = await this.whaleService.getTopWhales(10);
+      const whales = response.whales || [];
+
+      if (whales.length === 0) {
+        await this.bot.editMessageText('❌ Не удалось получить данные о китах', {
+          chat_id: chatId,
+          message_id: statusMsg.message_id,
+        });
+        return;
+      }
+
+      const text = TelegramFormatter.formatTopWhales(whales);
+
+      await this.bot.editMessageText(text, {
+        chat_id: chatId,
+        message_id: statusMsg.message_id,
+        parse_mode: 'Markdown',
+      });
+    } catch (error) {
+      logger.error('Error handling /top command', error);
+      await this.bot.sendMessage(chatId, '❌ Ошибка при получении данных о китах');
+    }
+  }
+
+  /**
+   * Handle /top50 command - Top 50 whales
+   */
+  private async handleTop50(msg: TelegramBot.Message): Promise<void> {
+    const chatId = msg.chat.id;
+
+    try {
+      const statusMsg = await this.bot.sendMessage(chatId, '⏳ Загружаю топ 50 китов...');
+
+      const response = await this.whaleService.getTopWhales(50);
+      const whales = response.whales || [];
+
+      if (whales.length === 0) {
+        await this.bot.editMessageText('❌ Не удалось получить данные о китах', {
+          chat_id: chatId,
+          message_id: statusMsg.message_id,
+        });
+        return;
+      }
+
+      const text = TelegramFormatter.formatTopWhalesExtended(whales);
+
+      await this.bot.editMessageText(text, {
+        chat_id: chatId,
+        message_id: statusMsg.message_id,
+        parse_mode: 'Markdown',
+      });
+    } catch (error) {
+      logger.error('Error handling /top50 command', error);
+      await this.bot.sendMessage(chatId, '❌ Ошибка при получении данных о китах');
+    }
+  }
+
+  /**
+   * Handle /whale <address> command - Search specific whale
+   */
+  private async handleWhaleSearch(msg: TelegramBot.Message, address: string): Promise<void> {
+    const chatId = msg.chat.id;
+
+    try {
+      // Validate address format
+      if (!address.match(/^0x[a-fA-F0-9]{40}$/i)) {
+        await this.bot.sendMessage(chatId, '❌ Некорректный формат адреса. Используйте: /whale 0x...');
+        return;
+      }
+
+      const statusMsg = await this.bot.sendMessage(chatId, `⏳ Ищу кита по адресу ${address.substring(0, 10)}...`);
+
+      const result = await this.whaleService.searchWhale(address);
+
+      if (!result.found || !result.whale) {
+        await this.bot.editMessageText(`❌ Кит с адресом ${address.substring(0, 10)}... не найден`, {
+          chat_id: chatId,
+          message_id: statusMsg.message_id,
+        });
+        return;
+      }
+
+      const text = TelegramFormatter.formatWhaleDetails(result.whale);
+
+      await this.bot.editMessageText(text, {
+        chat_id: chatId,
+        message_id: statusMsg.message_id,
+        parse_mode: 'Markdown',
+      });
+    } catch (error) {
+      logger.error('Error handling /whale command', error);
+      await this.bot.sendMessage(chatId, '❌ Ошибка при поиске кита');
+    }
+  }
+
+  /**
+   * Handle /floor command - Floor price
+   */
+  private async handleFloor(msg: TelegramBot.Message): Promise<void> {
+    const chatId = msg.chat.id;
+
+    try {
+      const stats = await this.whaleService.getStats();
+
+      if (!stats || !stats.data) {
+        await this.bot.sendMessage(chatId, '❌ Не удалось получить данные о floor price');
+        return;
+      }
+
+      const floorPrice = stats.data.floorPrice || 'N/A';
+      const text = `
+🏷️ *Floor Price MAYC*
+
+Текущая цена: ${floorPrice} ETH
+
+Обновлено: ${new Date().toLocaleTimeString('ru-RU')}
+      `;
+
+      await this.bot.sendMessage(chatId, text, { parse_mode: 'Markdown' });
+    } catch (error) {
+      logger.error('Error handling /floor command', error);
+      await this.bot.sendMessage(chatId, '❌ Ошибка при получении floor price');
+    }
+  }
+
+  /**
+   * Handle /refresh command - Admin cache refresh
+   */
+  private async handleRefresh(msg: TelegramBot.Message): Promise<void> {
+    const chatId = msg.chat.id;
+    const adminId = process.env.TELEGRAM_ADMIN_ID || '';
+
+    try {
+      // Check if user is admin
+      if (adminId && msg.from?.id.toString() !== adminId) {
+        await this.bot.sendMessage(chatId, '❌ Доступ запрещен. Команда только для администратора.');
+        return;
+      }
+
+      const statusMsg = await this.bot.sendMessage(chatId, '⏳ Очищаю кэш...');
+
+      const result = await this.whaleService.refreshCache();
+
+      await this.bot.editMessageText('✅ Кэш успешно очищен. Данные будут обновлены при следующем запросе.', {
+        chat_id: chatId,
+        message_id: statusMsg.message_id,
+        parse_mode: 'Markdown',
+      });
+    } catch (error) {
+      logger.error('Error handling /refresh command', error);
+      await this.bot.sendMessage(chatId, '❌ Ошибка при очистке кэша');
+    }
+  }
+
+  /**
+   * Handle /stats command - Collection statistics
+   */
+  private async handleStats(msg: TelegramBot.Message): Promise<void> {
+    const chatId = msg.chat.id;
+
+    try {
+      const statusMsg = await this.bot.sendMessage(chatId, '⏳ Загружаю статистику коллекции...');
+
+      const analytics = await this.whaleService.getAnalytics();
+
+      if (!analytics) {
+        await this.bot.editMessageText('❌ Не удалось получить статистику', {
+          chat_id: chatId,
+          message_id: statusMsg.message_id,
+        });
+        return;
+      }
+
+      const text = TelegramFormatter.formatCollectionStats(analytics);
+
+      await this.bot.editMessageText(text, {
+        chat_id: chatId,
+        message_id: statusMsg.message_id,
+        parse_mode: 'Markdown',
+      });
+    } catch (error) {
+      logger.error('Error handling /stats command', error);
+      await this.bot.sendMessage(chatId, '❌ Ошибка при получении статистики');
+    }
   }
 
   /**
