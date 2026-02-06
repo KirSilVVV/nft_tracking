@@ -26,11 +26,20 @@ export class NFTBot {
   constructor(token: string) {
     // Initialize bot without internal HTTP server
     // Let Express handle webhook routing instead
-    this.bot = new TelegramBot(token);
+    logger.info('🚀 NFTBot constructor: Initializing TelegramBot...');
 
+    this.bot = new TelegramBot(token);
+    logger.info('✅ TelegramBot instance created');
+
+    logger.info('🚀 NFTBot constructor: Setting up commands...');
     this.setupCommands();
+    logger.info('✅ Commands setup completed');
+
+    logger.info('🚀 NFTBot constructor: Setting up callback queries...');
     this.setupCallbackQueries();
-    logger.info('🔗 Telegram bot initialized in webhook mode (Express handler)');
+    logger.info('✅ Callback queries setup completed');
+
+    logger.info('✅ 🔗 Telegram bot fully initialized in webhook mode (Express handler)');
   }
 
   /**
@@ -39,43 +48,71 @@ export class NFTBot {
   handleWebhookUpdate(update: any): void {
     // Telegram sends updates as { update_id, message/callback_query/etc }
     try {
+      logger.info(`📥 [WEBHOOK] Received update: ${JSON.stringify(update).substring(0, 100)}...`);
+
       if (update.message) {
-        logger.info(`📨 Received message: "${update.message.text}" from chat ${update.message.chat.id}`);
+        logger.info(`📨 [WEBHOOK] Message update: text="${update.message.text}", chat_id=${update.message.chat.id}`);
       } else if (update.callback_query) {
-        logger.info(`📨 Received callback: "${update.callback_query.data}" from user ${update.callback_query.from.id}`);
+        logger.info(`📨 [WEBHOOK] Callback update: data="${update.callback_query.data}", user_id=${update.callback_query.from.id}`);
+      } else {
+        logger.info(`📨 [WEBHOOK] Other update type: ${Object.keys(update).join(', ')}`);
       }
+
+      logger.info('📨 [WEBHOOK] Calling bot.processUpdate()...');
       this.bot.processUpdate(update);
+      logger.info('✅ [WEBHOOK] processUpdate() completed');
     } catch (error) {
-      logger.error('Error processing webhook update', error);
+      logger.error('❌ [WEBHOOK] Error processing webhook update:', error);
     }
   }
 
   private setupCommands(): void {
+    logger.info('🔧 Setting up command handlers...');
+
     // /start command
-    this.bot.onText(/\/start/, (msg) => this.handleStart(msg));
+    this.bot.onText(/\/start/, (msg) => {
+      logger.info('✅ /start command handler triggered');
+      this.handleStart(msg);
+    });
 
     // /help command
-    this.bot.onText(/\/help/, (msg) => this.handleHelp(msg));
+    this.bot.onText(/\/help/, (msg) => {
+      logger.info('✅ /help command handler triggered');
+      this.handleHelp(msg);
+    });
 
     // /holders command
-    this.bot.onText(/\/holders/, (msg) => this.handleHolders(msg));
+    this.bot.onText(/\/holders/, (msg) => {
+      logger.info('✅ /holders command handler triggered');
+      this.handleHolders(msg).catch(err => logger.error('Unhandled error in handleHolders', err));
+    });
 
     // /whales command
-    this.bot.onText(/\/whales/, (msg) => this.handleWhales(msg));
+    this.bot.onText(/\/whales/, (msg) => {
+      logger.info('✅ /whales command handler triggered');
+      this.handleWhales(msg).catch(err => logger.error('Unhandled error in handleWhales', err));
+    });
 
     // /metrics command with optional period
     this.bot.onText(/\/metrics\s*(24h|7d|30d)?/, (msg, match) => {
+      logger.info('✅ /metrics command handler triggered');
       const period = match?.[1] || '24h';
-      this.handleMetrics(msg, period);
+      this.handleMetrics(msg, period).catch(err => logger.error('Unhandled error in handleMetrics', err));
     });
 
     // /recent command
-    this.bot.onText(/\/recent/, (msg) => this.handleRecent(msg));
+    this.bot.onText(/\/recent/, (msg) => {
+      logger.info('✅ /recent command handler triggered');
+      this.handleRecent(msg).catch(err => logger.error('Unhandled error in handleRecent', err));
+    });
 
     // /subscribe command
-    this.bot.onText(/\/subscribe/, (msg) => this.handleSubscribe(msg));
+    this.bot.onText(/\/subscribe/, (msg) => {
+      logger.info('✅ /subscribe command handler triggered');
+      this.handleSubscribe(msg).catch(err => logger.error('Unhandled error in handleSubscribe', err));
+    });
 
-    logger.info('Commands setup completed');
+    logger.info('✅ All commands registered successfully');
   }
 
   private setupCallbackQueries(): void {
@@ -147,43 +184,70 @@ export class NFTBot {
     const chatId = msg.chat.id;
 
     try {
-      logger.info(`/holders command from chat ${chatId}`);
+      logger.info(`🔍 handleHolders() called for chat ${chatId}`);
 
       // Check if we have cached data
-      let topHolders = this.cacheService.get('topHolders');
+      const topHolders = this.cacheService.get('topHolders');
+      logger.info(`📊 Cache check: topHolders = ${topHolders ? topHolders.length + ' items' : 'null/empty'}`);
 
       if (!topHolders || topHolders.length === 0) {
         // No cache - send loading message and fetch in background
-        logger.info('No cached holders, fetching in background...');
+        logger.info('⏳ No cached holders, sending loading messages...');
 
-        await this.bot.sendMessage(chatId, '⏳ Загружаю данные о топ держателях...\n\nЭто может занять несколько минут...');
+        try {
+          await this.bot.sendMessage(chatId, '⏳ Загружаю данные о топ держателях...\n\nЭто может занять несколько минут...');
+          logger.info('✅ First loading message sent');
+        } catch (sendErr) {
+          logger.error('❌ Failed to send first loading message', sendErr);
+          throw sendErr;
+        }
 
         // Update cache in background (don't await)
+        logger.info('🔄 Starting background cache update...');
         this.updateHoldersCacheInBackground();
 
         // Return empty result for now
-        await this.bot.sendMessage(chatId, '📊 *Топ-10 держателей MAYC*\n\n⏳ Данные загружаются в фоне. Попробуйте запрос еще раз через минуту.', {
-          parse_mode: 'Markdown',
-        });
+        try {
+          await this.bot.sendMessage(chatId, '📊 *Топ-10 держателей MAYC*\n\n⏳ Данные загружаются в фоне. Попробуйте запрос еще раз через минуту.', {
+            parse_mode: 'Markdown',
+          });
+          logger.info('✅ Second loading message sent');
+        } catch (sendErr) {
+          logger.error('❌ Failed to send second loading message', sendErr);
+          throw sendErr;
+        }
         return;
       }
 
+      logger.info(`📊 Using cached data: ${topHolders.length} holders`);
       this.userPages.set(chatId, 1);
 
-      const text = TelegramFormatter.formatHolders(topHolders, 1, 10);
-      const keyboard = TelegramFormatter.getHoldersKeyboard(1, Math.ceil(topHolders.length / 10));
+      try {
+        const text = TelegramFormatter.formatHolders(topHolders, 1, 10);
+        const keyboard = TelegramFormatter.getHoldersKeyboard(1, Math.ceil(topHolders.length / 10));
 
-      await this.bot.sendMessage(chatId, text, {
-        parse_mode: 'Markdown',
-        reply_markup: keyboard,
-      });
+        await this.bot.sendMessage(chatId, text, {
+          parse_mode: 'Markdown',
+          reply_markup: keyboard,
+        });
+        logger.info('✅ Holders data sent successfully');
+      } catch (sendErr) {
+        logger.error('❌ Failed to send holders message', sendErr);
+        throw sendErr;
+      }
 
       // Update cache in background (don't await)
+      logger.info('🔄 Starting background cache update...');
       this.updateHoldersCacheInBackground();
 
     } catch (error) {
-      logger.error('Error handling holders command', error);
-      await this.bot.sendMessage(chatId, '❌ Ошибка при получении данных');
+      logger.error('❌ Error handling holders command:', error);
+      try {
+        await this.bot.sendMessage(chatId, '❌ Ошибка при получении данных');
+        logger.info('✅ Error message sent to user');
+      } catch (sendErr) {
+        logger.error('❌ Failed to send error message', sendErr);
+      }
     }
   }
 
@@ -194,15 +258,25 @@ export class NFTBot {
     // Fire and forget - don't await
     setImmediate(async () => {
       try {
-        logger.info('Starting background cache update for holders...');
-        const events = await this.blockchainService.getAllTransferEvents(0);
-        const allHolders = this.analyticsService.buildHoldersList(events);
-        const topHolders = this.analyticsService.getTopHolders(allHolders, 50);
+        logger.info('🔄 [BG] Starting background cache update for holders...');
 
+        logger.info('🔄 [BG] Calling getAllTransferEvents...');
+        const events = await this.blockchainService.getAllTransferEvents(0);
+        logger.info(`🔄 [BG] Got ${events.length} events from blockchain`);
+
+        logger.info('🔄 [BG] Building holders list...');
+        const allHolders = this.analyticsService.buildHoldersList(events);
+        logger.info(`🔄 [BG] Built ${allHolders.length} unique holders`);
+
+        logger.info('🔄 [BG] Getting top 50 holders...');
+        const topHolders = this.analyticsService.getTopHolders(allHolders, 50);
+        logger.info(`🔄 [BG] Got top ${topHolders.length} holders`);
+
+        logger.info('🔄 [BG] Setting cache...');
         this.cacheService.set('topHolders', topHolders, 3600); // Cache for 1 hour
-        logger.info(`✅ Holders cache updated with ${topHolders.length} holders`);
+        logger.info(`✅ [BG] Holders cache updated with ${topHolders.length} holders`);
       } catch (error) {
-        logger.error('Error updating holders cache in background', error);
+        logger.error('❌ [BG] Error updating holders cache in background:', error);
       }
     });
   }
