@@ -27,41 +27,72 @@ export class BlockchainService {
 
   /**
    * Get all Transfer events from contract starting from a block
+   * Chunks the request into smaller block ranges to avoid hitting Alchemy limits
    */
   async getAllTransferEvents(fromBlock: number = 0, toBlock?: number): Promise<Transaction[]> {
     try {
-      logger.info(`Fetching transfer events from block ${fromBlock} to ${toBlock || 'latest'}`);
-
       if (!toBlock) {
         toBlock = await this.alchemyProvider.getBlockNumber();
       }
 
-      // Fetch logs for Transfer events
-      const logs = await this.alchemyProvider.getLogs(
-        this.contractAddress,
-        `0x${fromBlock.toString(16)}`,
-        `0x${toBlock.toString(16)}`,
-        [TRANSFER_EVENT_SIGNATURE]
-      );
+      logger.info(`Fetching transfer events from block ${fromBlock} to ${toBlock}`);
 
-      logger.info(`Found ${logs.length} transfer events`);
-
-      // Parse logs into Transaction objects
-      const transactions: Transaction[] = [];
-      for (const log of logs) {
-        try {
-          const tx = this.parseTransferLog(log);
-          transactions.push(tx);
-        } catch (error) {
-          logger.warn(`Failed to parse log ${log.transactionHash}`, error);
-        }
+      // For large ranges, only fetch recent data (last 7 days approximately)
+      // to avoid hitting API limits
+      const blockRange = toBlock - fromBlock;
+      if (blockRange > 100000) {
+        // Approximately 7 days of blocks (13 sec per block)
+        const recentFromBlock = Math.max(fromBlock, toBlock - 45000);
+        logger.info(`Block range too large (${blockRange}), fetching recent blocks: ${recentFromBlock} to ${toBlock}`);
+        fromBlock = recentFromBlock;
       }
+
+      const transactions = await this.fetchLogsInChunks(fromBlock, toBlock);
+      logger.info(`Found ${transactions.length} transfer events`);
 
       return transactions;
     } catch (error) {
       logger.error('Failed to get transfer events', error);
       throw error;
     }
+  }
+
+  /**
+   * Fetch logs in chunks to avoid exceeding Alchemy's block range limit
+   * Alchemy allows up to 1000 block range per request
+   */
+  private async fetchLogsInChunks(fromBlock: number, toBlock: number): Promise<Transaction[]> {
+    const CHUNK_SIZE = 1000; // Conservative limit for Alchemy API
+    const transactions: Transaction[] = [];
+
+    for (let chunk = fromBlock; chunk < toBlock; chunk += CHUNK_SIZE) {
+      const chunkEnd = Math.min(chunk + CHUNK_SIZE, toBlock);
+      logger.debug(`Fetching logs chunk: ${chunk} to ${chunkEnd}`);
+
+      try {
+        const logs = await this.alchemyProvider.getLogs(
+          this.contractAddress,
+          `0x${chunk.toString(16)}`,
+          `0x${chunkEnd.toString(16)}`,
+          [TRANSFER_EVENT_SIGNATURE]
+        );
+
+        // Parse logs into Transaction objects
+        for (const log of logs) {
+          try {
+            const tx = this.parseTransferLog(log);
+            transactions.push(tx);
+          } catch (error) {
+            logger.warn(`Failed to parse log ${log.transactionHash}`, error);
+          }
+        }
+      } catch (error) {
+        logger.error(`Failed to fetch logs for block range ${chunk}-${chunkEnd}`, error);
+        // Continue with next chunk instead of throwing
+      }
+    }
+
+    return transactions;
   }
 
   /**
@@ -87,15 +118,17 @@ export class BlockchainService {
    */
   async getTokenOwner(tokenId: number): Promise<string> {
     try {
-      // This would require the contract ABI to call ownerOf
-      // For now, we'll parse it from recent Transfer events
       logger.info(`Getting owner of token ${tokenId}`);
 
-      // This is a simplified version - in production you'd use contract ABI
+      // Get recent blocks only (last 10000 blocks)
+      const currentBlock = await this.alchemyProvider.getBlockNumber();
+      const recentFromBlock = Math.max(0, currentBlock - 10000);
+
+      // Get recent Transfer events
       const lastEvent = await this.alchemyProvider.getLogs(
         this.contractAddress,
-        '0x0',
-        '0xffffff',
+        `0x${recentFromBlock.toString(16)}`,
+        `0x${currentBlock.toString(16)}`,
         [TRANSFER_EVENT_SIGNATURE]
       );
 
