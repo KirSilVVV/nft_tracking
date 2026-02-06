@@ -58,6 +58,27 @@ export class BlockchainService {
   }
 
   /**
+   * Get recent Transfer events (last N blocks) for quick results
+   * Designed to return data quickly for immediate user feedback
+   */
+  async getRecentTransferEvents(blockDepth: number = 5000): Promise<Transaction[]> {
+    try {
+      const toBlock = await this.alchemyProvider.getBlockNumber();
+      const fromBlock = Math.max(0, toBlock - blockDepth);
+
+      logger.info(`📊 Fetching RECENT events: last ${blockDepth} blocks (${fromBlock} to ${toBlock})`);
+
+      const transactions = await this.fetchLogsInChunks(fromBlock, toBlock);
+      logger.info(`✅ Found ${transactions.length} recent transfer events`);
+
+      return transactions;
+    } catch (error) {
+      logger.error('Failed to get recent transfer events', error);
+      throw error;
+    }
+  }
+
+  /**
    * Fetch logs in chunks to avoid exceeding Alchemy's block range limit
    * Free tier: up to 10 blocks per request, ~10 requests/sec rate limit
    * PAYG tier: up to 10,000 blocks per request

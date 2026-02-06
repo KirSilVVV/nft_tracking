@@ -186,65 +186,88 @@ export class NFTBot {
     try {
       logger.info(`🔍 handleHolders() called for chat ${chatId}`);
 
-      // Check if we have cached data
-      const topHolders = this.cacheService.get('topHolders');
-      logger.info(`📊 Cache check: topHolders = ${topHolders ? topHolders.length + ' items' : 'null/empty'}`);
+      // Check if we have cached data (full history)
+      const cachedHolders = this.cacheService.get('topHolders');
+      logger.info(`📊 Cache check: topHolders = ${cachedHolders ? cachedHolders.length + ' items' : 'null/empty'}`);
 
-      if (!topHolders || topHolders.length === 0) {
-        // No cache - send loading message and fetch in background
-        logger.info('⏳ No cached holders, sending loading messages...');
+      if (cachedHolders && cachedHolders.length > 0) {
+        // Use cached full data immediately
+        logger.info(`✅ Using full cached data: ${cachedHolders.length} holders`);
+        this.userPages.set(chatId, 1);
 
-        try {
-          await this.bot.sendMessage(chatId, '⏳ Загружаю данные о топ держателях...\n\nЭто может занять несколько минут...');
-          logger.info('✅ First loading message sent');
-        } catch (sendErr) {
-          logger.error('❌ Failed to send first loading message', sendErr);
-          throw sendErr;
-        }
-
-        // Update cache in background (don't await)
-        logger.info('🔄 Starting background cache update...');
-        this.updateHoldersCacheInBackground();
-
-        // Return empty result for now
-        try {
-          await this.bot.sendMessage(chatId, '📊 *Топ-10 держателей MAYC*\n\n⏳ Данные загружаются в фоне. Попробуйте запрос еще раз через минуту.', {
-            parse_mode: 'Markdown',
-          });
-          logger.info('✅ Second loading message sent');
-        } catch (sendErr) {
-          logger.error('❌ Failed to send second loading message', sendErr);
-          throw sendErr;
-        }
-        return;
-      }
-
-      logger.info(`📊 Using cached data: ${topHolders.length} holders`);
-      this.userPages.set(chatId, 1);
-
-      try {
-        const text = TelegramFormatter.formatHolders(topHolders, 1, 10);
-        const keyboard = TelegramFormatter.getHoldersKeyboard(1, Math.ceil(topHolders.length / 10));
+        const text = TelegramFormatter.formatHolders(cachedHolders, 1, 10);
+        const keyboard = TelegramFormatter.getHoldersKeyboard(1, Math.ceil(cachedHolders.length / 10));
 
         await this.bot.sendMessage(chatId, text, {
           parse_mode: 'Markdown',
           reply_markup: keyboard,
         });
-        logger.info('✅ Holders data sent successfully');
-      } catch (sendErr) {
-        logger.error('❌ Failed to send holders message', sendErr);
-        throw sendErr;
+        logger.info('✅ Cached holders data sent');
+
+        // Continue updating full history in background
+        this.updateHoldersCacheInBackground();
+        return;
       }
 
-      // Update cache in background (don't await)
-      logger.info('🔄 Starting background cache update...');
+      // No full cache - fetch recent data for immediate response
+      logger.info('🔄 Fetching recent events for immediate display...');
+      const statusMsg = await this.bot.sendMessage(chatId, '⏳ Загружаю данные о топ держателях (последние блоки)...');
+
+      try {
+        // Fetch recent 5000 blocks (~2-3 minutes)
+        logger.info('📥 Starting getRecentTransferEvents...');
+        const recentEvents = await this.blockchainService.getRecentTransferEvents(5000);
+        logger.info(`✅ Got ${recentEvents.length} recent events`);
+
+        // Build holders from recent data
+        logger.info('🔨 Building holders list from recent events...');
+        const holders = this.analyticsService.buildHoldersList(recentEvents);
+        const topHolders = this.analyticsService.getTopHolders(holders, 50);
+        logger.info(`✅ Got ${topHolders.length} top holders from recent data`);
+
+        // Update message with results
+        this.userPages.set(chatId, 1);
+        const text = TelegramFormatter.formatHolders(topHolders, 1, 10);
+        const keyboard = TelegramFormatter.getHoldersKeyboard(1, Math.ceil(topHolders.length / 10));
+
+        try {
+          await this.bot.editMessageText(text, {
+            chat_id: chatId,
+            message_id: statusMsg.message_id,
+            parse_mode: 'Markdown',
+            reply_markup: keyboard,
+          });
+          logger.info('✅ Updated status message with holders data');
+        } catch (editErr) {
+          logger.warn('Could not edit message, sending new message instead', editErr);
+          await this.bot.sendMessage(chatId, text, {
+            parse_mode: 'Markdown',
+            reply_markup: keyboard,
+          });
+        }
+
+        // Send info about background update
+        await this.bot.sendMessage(chatId, '📊 *Дополнительная информация*:\n\nЭтот результат основан на последних блоках.\nПолная история загружается в фоне и будет доступна через несколько минут.', {
+          parse_mode: 'Markdown',
+        });
+
+      } catch (fetchErr) {
+        logger.error('❌ Error fetching recent events:', fetchErr);
+        await this.bot.editMessageText('❌ Ошибка при загрузке данных. Попробуйте позже.', {
+          chat_id: chatId,
+          message_id: statusMsg.message_id,
+        });
+        return;
+      }
+
+      // Update cache in background with FULL history (don't await)
+      logger.info('🔄 Starting full history background update...');
       this.updateHoldersCacheInBackground();
 
     } catch (error) {
       logger.error('❌ Error handling holders command:', error);
       try {
         await this.bot.sendMessage(chatId, '❌ Ошибка при получении данных');
-        logger.info('✅ Error message sent to user');
       } catch (sendErr) {
         logger.error('❌ Failed to send error message', sendErr);
       }
