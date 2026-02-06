@@ -214,9 +214,9 @@ export class NFTBot {
       const statusMsg = await this.bot.sendMessage(chatId, '⏳ Загружаю данные о топ держателях (последние блоки)...');
 
       try {
-        // Fetch recent 5000 blocks (~2-3 minutes)
+        // Fetch recent 2000 blocks (~60-90 seconds = ~1.5 minutes at 3sec/request)
         logger.info('📥 Starting getRecentTransferEvents...');
-        const recentEvents = await this.blockchainService.getRecentTransferEvents(5000);
+        const recentEvents = await this.blockchainService.getRecentTransferEvents(2000);
         logger.info(`✅ Got ${recentEvents.length} recent events`);
 
         // Build holders from recent data

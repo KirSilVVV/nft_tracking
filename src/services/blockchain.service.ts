@@ -88,7 +88,7 @@ export class BlockchainService {
   private async fetchLogsInChunks(fromBlock: number, toBlock: number): Promise<Transaction[]> {
     const CHUNK_SIZE = 10; // Free tier limit (works with PAYG too)
     const transactions: Transaction[] = [];
-    let rateLimitDelay = 3000; // Start with 3000ms delay (0.33 req/sec = safe for free tier compute units)
+    let rateLimitDelay = 1500; // Start with 1500ms delay (0.67 req/sec = safe for free tier: 67 CU/sec << 2700 limit)
 
     for (let chunk = fromBlock; chunk < toBlock; chunk += CHUNK_SIZE) {
       const chunkEnd = Math.min(chunk + CHUNK_SIZE - 1, toBlock);
@@ -113,14 +113,14 @@ export class BlockchainService {
         }
 
         // Reset delay on success
-        rateLimitDelay = 3000;
+        rateLimitDelay = 1500;
 
         // Add delay between requests to respect rate limits
         await this.sleep(rateLimitDelay);
       } catch (error: any) {
         // Handle 429 Too Many Requests with exponential backoff
         if (error.response?.status === 429) {
-          rateLimitDelay = Math.min(rateLimitDelay * 2, 5000); // Max 5 second delay
+          rateLimitDelay = Math.min(rateLimitDelay * 2, 3000); // Max 3 second delay
           logger.warn(`Rate limited, backing off to ${rateLimitDelay}ms`);
 
           // Wait longer before retrying
