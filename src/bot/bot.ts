@@ -38,7 +38,16 @@ export class NFTBot {
    */
   handleWebhookUpdate(update: any): void {
     // Telegram sends updates as { update_id, message/callback_query/etc }
-    this.bot.processUpdate(update);
+    try {
+      if (update.message) {
+        logger.info(`📨 Received message: "${update.message.text}" from chat ${update.message.chat.id}`);
+      } else if (update.callback_query) {
+        logger.info(`📨 Received callback: "${update.callback_query.data}" from user ${update.callback_query.from.id}`);
+      }
+      this.bot.processUpdate(update);
+    } catch (error) {
+      logger.error('Error processing webhook update', error);
+    }
   }
 
   private setupCommands(): void {
@@ -138,14 +147,27 @@ export class NFTBot {
     const chatId = msg.chat.id;
 
     try {
-      // Fetch recent data only (last 10,000 blocks = ~2.3 days)
-      // This avoids excessive API calls and rate limiting for historical data
-      const events = await this.blockchainService.getAllTransferEvents(0);
-      const allHolders = this.analyticsService.buildHoldersList(events);
-      const topHolders = this.analyticsService.getTopHolders(allHolders, 50);
+      logger.info(`/holders command from chat ${chatId}`);
 
-      // Cache for pagination
-      this.cacheService.set(`holders_${chatId}`, topHolders);
+      // Check if we have cached data
+      let topHolders = this.cacheService.get('topHolders');
+
+      if (!topHolders || topHolders.length === 0) {
+        // No cache - send loading message and fetch in background
+        logger.info('No cached holders, fetching in background...');
+
+        await this.bot.sendMessage(chatId, '⏳ Загружаю данные о топ держателях...\n\nЭто может занять несколько минут...');
+
+        // Update cache in background (don't await)
+        this.updateHoldersCacheInBackground();
+
+        // Return empty result for now
+        await this.bot.sendMessage(chatId, '📊 *Топ-10 держателей MAYC*\n\n⏳ Данные загружаются в фоне. Попробуйте запрос еще раз через минуту.', {
+          parse_mode: 'Markdown',
+        });
+        return;
+      }
+
       this.userPages.set(chatId, 1);
 
       const text = TelegramFormatter.formatHolders(topHolders, 1, 10);
@@ -155,26 +177,79 @@ export class NFTBot {
         parse_mode: 'Markdown',
         reply_markup: keyboard,
       });
+
+      // Update cache in background (don't await)
+      this.updateHoldersCacheInBackground();
+
     } catch (error) {
       logger.error('Error handling holders command', error);
       await this.bot.sendMessage(chatId, '❌ Ошибка при получении данных');
     }
   }
 
+  /**
+   * Update holders cache in the background without blocking
+   */
+  private updateHoldersCacheInBackground(): void {
+    // Fire and forget - don't await
+    setImmediate(async () => {
+      try {
+        logger.info('Starting background cache update for holders...');
+        const events = await this.blockchainService.getAllTransferEvents(0);
+        const allHolders = this.analyticsService.buildHoldersList(events);
+        const topHolders = this.analyticsService.getTopHolders(allHolders, 50);
+
+        this.cacheService.set('topHolders', topHolders, 3600); // Cache for 1 hour
+        logger.info(`✅ Holders cache updated with ${topHolders.length} holders`);
+      } catch (error) {
+        logger.error('Error updating holders cache in background', error);
+      }
+    });
+  }
+
+  /**
+   * Update events cache in the background without blocking
+   */
+  private updateEventsCacheInBackground(): void {
+    // Fire and forget - don't await
+    setImmediate(async () => {
+      try {
+        logger.info('Starting background cache update for events...');
+        const events = await this.blockchainService.getAllTransferEvents(0);
+
+        this.cacheService.set('recentEvents', events, 3600); // Cache for 1 hour
+        logger.info(`✅ Events cache updated with ${events.length} events`);
+      } catch (error) {
+        logger.error('Error updating events cache in background', error);
+      }
+    });
+  }
+
   private async handleWhales(msg: TelegramBot.Message): Promise<void> {
     const chatId = msg.chat.id;
 
     try {
-      // Fetch data
-      const events = await this.blockchainService.getAllTransferEvents(0);
-      const allHolders = this.analyticsService.buildHoldersList(events);
-      const whales = allHolders.filter((h) => h.count >= 10);
+      logger.info(`/whales command from chat ${chatId}`);
 
+      const topHolders = this.cacheService.get('topHolders');
+
+      if (!topHolders || topHolders.length === 0) {
+        logger.info('No cached holders for whales command');
+        await this.bot.sendMessage(chatId, '⏳ Загружаю данные о китах...\n\nПопробуйте еще раз через минуту.');
+        this.updateHoldersCacheInBackground();
+        return;
+      }
+
+      const whales = topHolders.filter((h) => h.count >= 10);
       const text = TelegramFormatter.formatWhales(whales);
 
       await this.bot.sendMessage(chatId, text, {
         parse_mode: 'Markdown',
       });
+
+      // Update in background
+      this.updateHoldersCacheInBackground();
+
     } catch (error) {
       logger.error('Error handling whales command', error);
       await this.bot.sendMessage(chatId, '❌ Ошибка при получении данных');
@@ -185,12 +260,21 @@ export class NFTBot {
     const chatId = msg.chat.id;
 
     try {
+      logger.info(`/metrics command from chat ${chatId}, period: ${period}`);
+
       // Parse period
       const hours =
         period === '7d' ? 168 : period === '30d' ? 720 : 24;
 
-      // Fetch data
-      const allEvents = await this.blockchainService.getAllTransferEvents(0);
+      // Check cache for recent events
+      const allEvents = this.cacheService.get('recentEvents') || [];
+
+      if (!allEvents || allEvents.length === 0) {
+        await this.bot.sendMessage(chatId, `⏳ Загружаю метрики за ${period}...\n\nПопробуйте еще раз через минуту.`);
+        this.updateEventsCacheInBackground();
+        return;
+      }
+
       const inWindow = this.analyticsService.getTransactionsInWindow(allEvents, hours);
       const metrics = this.analyticsService.calculateMetricsForPeriod(inWindow);
 
@@ -201,6 +285,10 @@ export class NFTBot {
         parse_mode: 'Markdown',
         reply_markup: keyboard,
       });
+
+      // Update in background
+      this.updateEventsCacheInBackground();
+
     } catch (error) {
       logger.error('Error handling metrics command', error);
       await this.bot.sendMessage(chatId, '❌ Ошибка при получении данных');
@@ -211,8 +299,16 @@ export class NFTBot {
     const chatId = msg.chat.id;
 
     try {
-      // Fetch data
-      const allEvents = await this.blockchainService.getAllTransferEvents(0);
+      logger.info(`/recent command from chat ${chatId}`);
+
+      const allEvents = this.cacheService.get('recentEvents') || [];
+
+      if (!allEvents || allEvents.length === 0) {
+        await this.bot.sendMessage(chatId, '⏳ Загружаю недавние транзакции...\n\nПопробуйте еще раз через минуту.');
+        this.updateEventsCacheInBackground();
+        return;
+      }
+
       const recent = this.analyticsService.getTransactionsInWindow(allEvents, 24);
 
       const text = TelegramFormatter.formatRecent(recent);
@@ -220,6 +316,10 @@ export class NFTBot {
       await this.bot.sendMessage(chatId, text, {
         parse_mode: 'Markdown',
       });
+
+      // Update in background
+      this.updateEventsCacheInBackground();
+
     } catch (error) {
       logger.error('Error handling recent command', error);
       await this.bot.sendMessage(chatId, '❌ Ошибка при получении данных');

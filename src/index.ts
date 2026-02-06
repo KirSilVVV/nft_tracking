@@ -107,28 +107,49 @@ class NFTAnalyticsApp {
       this.isRunning = true;
       logger.info('✅ Bot is running in webhook mode!');
 
-      // Periodically update cache (every 10 minutes)
+      // Initialize cache on startup (in background)
+      logger.info('📥 Initializing cache on startup...');
+      setImmediate(async () => {
+        try {
+          const events = await blockchainService.getAllTransferEvents(0);
+          const holders = analyticsService.buildHoldersList(events);
+          const topHolders = analyticsService.getTopHolders(holders, 50);
+
+          cacheService.set('recentEvents', events, 3600);
+          cacheService.set('topHolders', topHolders, 3600);
+
+          logger.info(`✅ Cache initialized: ${events.length} events, ${topHolders.length} top holders`);
+        } catch (error) {
+          logger.error('Error initializing cache on startup', error);
+        }
+      });
+
+      // Periodically update cache (every 5 minutes to keep data fresh)
       setInterval(async () => {
         try {
-          logger.debug('Updating cache...');
+          logger.info('🔄 Periodic cache update started...');
           const events = await blockchainService.getAllTransferEvents(0);
+
+          // Update events cache
+          cacheService.set('recentEvents', events, 3600);
+          logger.info(`✅ Events cache updated: ${events.length} events`);
 
           // Update holders cache
           const holders = analyticsService.buildHoldersList(events);
-          cacheService.setHolders(holders);
-
           const topHolders = analyticsService.getTopHolders(holders, 50);
-          cacheService.setTopHolders(topHolders);
+          cacheService.set('topHolders', topHolders, 3600);
+          logger.info(`✅ Holders cache updated: ${topHolders.length} top holders`);
 
           // Update distribution stats
           const stats = analyticsService.calculateDistribution(holders);
-          cacheService.setHolderStats(stats);
+          cacheService.set('distribution', stats, 3600);
+          logger.info('✅ Distribution stats updated');
 
-          logger.debug('Cache updated successfully');
+          logger.info('✅ Periodic cache update completed');
         } catch (error) {
           logger.error('Error updating cache', error);
         }
-      }, 10 * 60 * 1000); // 10 minutes
+      }, 5 * 60 * 1000); // 5 minutes
 
       // Keep the process alive
       process.on('SIGINT', () => {
