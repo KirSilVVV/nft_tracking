@@ -70,7 +70,7 @@ export class BlockchainService {
     let rateLimitDelay = 200; // Start with 200ms delay (5 req/sec = safe for free tier)
 
     for (let chunk = fromBlock; chunk < toBlock; chunk += CHUNK_SIZE) {
-      const chunkEnd = Math.min(chunk + CHUNK_SIZE, toBlock);
+      const chunkEnd = Math.min(chunk + CHUNK_SIZE - 1, toBlock);
       logger.debug(`Fetching logs chunk: ${chunk} to ${chunkEnd}`);
 
       try {
@@ -171,10 +171,11 @@ export class BlockchainService {
       const recentFromBlock = Math.max(0, currentBlock - 10000);
 
       // Get recent Transfer events
+      // Note: Use currentBlock - 1 to stay within 10000-block range (inclusive on both ends)
       const lastEvent = await this.alchemyProvider.getLogs(
         this.contractAddress,
         `0x${recentFromBlock.toString(16)}`,
-        `0x${currentBlock.toString(16)}`,
+        `0x${(currentBlock - 1).toString(16)}`,
         [TRANSFER_EVENT_SIGNATURE]
       );
 
