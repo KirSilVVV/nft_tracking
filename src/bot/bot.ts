@@ -24,27 +24,25 @@ export class NFTBot {
   private userPages: Map<number, number> = new Map();
 
   constructor(token: string) {
-    this.bot = new TelegramBot(token, { polling: true });
-    this.setupCommands();
-    this.setupCallbackQueries();
-
-    // Handle polling errors (e.g., 409 Conflict from multiple instances)
-    let conflictRetries = 0;
-    this.bot.on('polling_error', (error: any) => {
-      if (error.code === 'ETELEGRAM' && error.message?.includes('409')) {
-        conflictRetries++;
-        logger.warn(`⚠️ Bot conflict detected (attempt ${conflictRetries}). Another instance may still be running. Retrying...`);
-        // Don't exit immediately, just log and let it retry
-        if (conflictRetries > 10) {
-          logger.error('❌ Too many conflict errors. Shutting down.');
-          process.exit(1);
-        }
-      } else {
-        logger.error('Polling error:', error);
+    // Use webhook mode instead of polling to avoid 409 conflicts on deployment
+    this.bot = new TelegramBot(token, {
+      webHook: {
+        port: 10000,
+        host: '0.0.0.0'
       }
     });
 
-    logger.info('Telegram bot initialized');
+    this.setupCommands();
+    this.setupCallbackQueries();
+    logger.info('🔗 Telegram bot initialized in webhook mode');
+  }
+
+  /**
+   * Handle webhook updates from Telegram
+   */
+  handleWebhookUpdate(update: any): void {
+    // Telegram sends updates as { update_id, message/callback_query/etc }
+    this.bot.processUpdate(update);
   }
 
   private setupCommands(): void {
@@ -444,10 +442,23 @@ export class NFTBot {
   }
 
   /**
+   * Set webhook URL for Telegram bot
+   */
+  async setWebhook(url: string): Promise<void> {
+    try {
+      await this.bot.setWebHook(url);
+      logger.info(`✅ Webhook set to ${url}`);
+    } catch (error) {
+      logger.error(`Failed to set webhook: ${url}`, error);
+      throw error;
+    }
+  }
+
+  /**
    * Close bot gracefully
    */
   close(): void {
-    this.bot.stopPolling();
+    // Don't call stopPolling for webhook mode
     logger.info('Telegram bot stopped');
   }
 }

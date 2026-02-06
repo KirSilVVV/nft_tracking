@@ -6,7 +6,6 @@ import { getBlockchainService } from './services/blockchain.service';
 import { getAnalyticsService } from './services/analytics.service';
 import { getCacheService } from './services/cache.service';
 import { logger } from './utils/logger';
-import { sleep } from './utils/helpers';
 
 class NFTAnalyticsApp {
   private bot: NFTBot | null = null;
@@ -19,9 +18,12 @@ class NFTAnalyticsApp {
   }
 
   /**
-   * Setup Express HTTP server for health checks and Render compatibility
+   * Setup Express HTTP server for health checks and webhook
    */
   private setupHttpServer(): void {
+    // Parse JSON body
+    this.httpServer.use(express.json());
+
     // Health check endpoint
     this.httpServer.get('/', (req, res) => {
       res.json({
@@ -36,6 +38,14 @@ class NFTAnalyticsApp {
         status: this.isRunning ? 'healthy' : 'initializing',
         timestamp: new Date().toISOString()
       });
+    });
+
+    // Telegram webhook endpoint
+    this.httpServer.post('/webhook', (req, res) => {
+      if (this.bot) {
+        this.bot.handleWebhookUpdate(req.body);
+      }
+      res.sendStatus(200);
     });
 
     // Start HTTP server on port 3000
@@ -73,42 +83,29 @@ class NFTAnalyticsApp {
 
       logger.info('🚀 Starting NFT Tracking Bot...');
 
-      // Wait 10 seconds to allow old bot instance to fully shut down
-      // This prevents 409 Conflict errors from Telegram polling
-      logger.info('⏳ Waiting for old bot instance to shut down...');
-      await sleep(10000);
-
       // Initialize services
       const blockchainService = getBlockchainService();
       const analyticsService = getAnalyticsService();
       const cacheService = getCacheService();
 
-      // Initialize Telegram bot
+      // Initialize Telegram bot with webhook
       this.bot = new NFTBot(botToken);
       const notificationService = initNotificationService(this.bot);
 
-      logger.info('✅ Telegram bot initialized');
-      logger.info('🔄 Starting blockchain monitoring...');
+      logger.info('✅ Telegram bot initialized in webhook mode');
 
-      // Start blockchain monitoring
-      await blockchainService.subscribeToTransfers(async (transaction) => {
-        try {
-          // Fetch current holders for whale detection
-          const events = await blockchainService.getAllTransferEvents(0);
-          const holders = analyticsService.buildHoldersList(events);
-
-          // Add to recent feed
-          cacheService.addToRecentTransactionFeed(transaction);
-
-          // Handle notifications
-          await notificationService.handleNewTransfer(transaction, holders);
-        } catch (error) {
-          logger.error('Error in transfer handler', error);
-        }
-      });
+      // Register webhook with Telegram
+      const webhookUrl = process.env.WEBHOOK_URL || `https://nft-tracking.onrender.com/webhook`;
+      try {
+        await this.bot.setWebhook(webhookUrl);
+        logger.info(`🔗 Webhook registered at ${webhookUrl}`);
+      } catch (error) {
+        logger.error('Failed to register webhook', error);
+        throw error;
+      }
 
       this.isRunning = true;
-      logger.info('✅ Bot is running!');
+      logger.info('✅ Bot is running in webhook mode!');
 
       // Periodically update cache (every 10 minutes)
       setInterval(async () => {
