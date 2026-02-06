@@ -314,7 +314,7 @@ export class NFTBot {
         return;
       }
 
-      const whales = topHolders.filter((h) => h.count >= 10);
+      const whales = topHolders.filter((h: Holder) => h.count >= 10);
       const text = TelegramFormatter.formatWhales(whales);
 
       await this.bot.sendMessage(chatId, text, {
