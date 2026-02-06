@@ -27,6 +27,17 @@ export class NFTBot {
     this.bot = new TelegramBot(token, { polling: true });
     this.setupCommands();
     this.setupCallbackQueries();
+
+    // Handle polling errors (e.g., 409 Conflict from multiple instances)
+    this.bot.on('polling_error', (error: any) => {
+      if (error.code === 'ETELEGRAM' && error.message?.includes('409')) {
+        logger.error('❌ Bot conflict detected - another instance is running. Shutting down...');
+        process.exit(1);
+      } else {
+        logger.error('Polling error:', error);
+      }
+    });
+
     logger.info('Telegram bot initialized');
   }
 
