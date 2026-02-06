@@ -175,7 +175,17 @@ export class BlockchainService {
 
     const from = this.topic2Address(topics[1]);
     const to = this.topic2Address(topics[2]);
-    const tokenId = BigInt(data).toString();
+
+    // Parse tokenId - handle empty or invalid data
+    let tokenId = '0';
+    if (data && data !== '0x' && data.length > 2) {
+      try {
+        tokenId = BigInt(data).toString();
+      } catch (error) {
+        logger.warn(`Failed to parse tokenId from data: ${data}`, error);
+        tokenId = '0';
+      }
+    }
 
     // Determine if it's a mint (from = 0x0...)
     const isMint = from === '0x0000000000000000000000000000000000000000';
