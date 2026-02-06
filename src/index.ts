@@ -6,6 +6,7 @@ import { getBlockchainService } from './services/blockchain.service';
 import { getAnalyticsService } from './services/analytics.service';
 import { getCacheService } from './services/cache.service';
 import { logger } from './utils/logger';
+import whaleRoutes from './routes/whale.routes';
 
 class NFTAnalyticsApp {
   private bot: NFTBot | null = null;
@@ -90,6 +91,9 @@ class NFTAnalyticsApp {
         timestamp: new Date().toISOString()
       });
     });
+
+    // Register whale tracker API routes
+    this.httpServer.use('/api/whales', whaleRoutes);
 
     // Start HTTP server on port 3000
     const port = parseInt(process.env.PORT || '3000', 10);
