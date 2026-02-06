@@ -11,6 +11,7 @@ class NFTAnalyticsApp {
   private bot: NFTBot | null = null;
   private isRunning: boolean = false;
   private httpServer: express.Application;
+  private requestLog: Array<{ timestamp: string; type: string; data: string }> = [];
 
   constructor() {
     this.httpServer = express();
@@ -40,12 +41,54 @@ class NFTAnalyticsApp {
       });
     });
 
+    // Diagnostic endpoint to check bot state
+    this.httpServer.get('/status', (req, res) => {
+      const cacheService = getCacheService();
+      const topHolders = cacheService.get('topHolders');
+      const recentEvents = cacheService.get('recentEvents');
+
+      res.json({
+        status: 'ok',
+        isRunning: this.isRunning,
+        bot: {
+          initialized: this.bot !== null,
+          type: 'webhook'
+        },
+        cache: {
+          topHolders: topHolders ? `${topHolders.length} holders` : 'empty',
+          recentEvents: recentEvents ? `${recentEvents.length} events` : 'empty'
+        },
+        timestamp: new Date().toISOString()
+      });
+    });
+
     // Telegram webhook endpoint
     this.httpServer.post('/webhook', (req, res) => {
+      // Log webhook requests
+      const messageText = req.body?.message?.text || req.body?.callback_query?.data || 'unknown';
+      this.requestLog.push({
+        timestamp: new Date().toISOString(),
+        type: req.body?.message ? 'message' : 'callback',
+        data: messageText
+      });
+      // Keep only last 20 requests
+      if (this.requestLog.length > 20) {
+        this.requestLog.shift();
+      }
+
       if (this.bot) {
         this.bot.handleWebhookUpdate(req.body);
       }
       res.sendStatus(200);
+    });
+
+    // Debug endpoint to see recent requests
+    this.httpServer.get('/debug', (req, res) => {
+      res.json({
+        status: 'ok',
+        recentRequests: this.requestLog.slice(-10),
+        timestamp: new Date().toISOString()
+      });
     });
 
     // Start HTTP server on port 3000
