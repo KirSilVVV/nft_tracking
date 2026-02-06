@@ -24,17 +24,13 @@ export class NFTBot {
   private userPages: Map<number, number> = new Map();
 
   constructor(token: string) {
-    // Use webhook mode instead of polling to avoid 409 conflicts on deployment
-    this.bot = new TelegramBot(token, {
-      webHook: {
-        port: 10000,
-        host: '0.0.0.0'
-      }
-    });
+    // Initialize bot without internal HTTP server
+    // Let Express handle webhook routing instead
+    this.bot = new TelegramBot(token);
 
     this.setupCommands();
     this.setupCallbackQueries();
-    logger.info('🔗 Telegram bot initialized in webhook mode');
+    logger.info('🔗 Telegram bot initialized in webhook mode (Express handler)');
   }
 
   /**
@@ -446,6 +442,11 @@ export class NFTBot {
    */
   async setWebhook(url: string): Promise<void> {
     try {
+      // Clear any existing webhook first
+      await this.bot.deleteWebHook();
+      logger.info('🗑️ Cleared existing webhook');
+
+      // Set new webhook URL
       await this.bot.setWebHook(url);
       logger.info(`✅ Webhook set to ${url}`);
     } catch (error) {
