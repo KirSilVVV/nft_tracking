@@ -59,12 +59,15 @@ export class BlockchainService {
 
   /**
    * Fetch logs in chunks to avoid exceeding Alchemy's block range limit
-   * Free tier: up to 10 blocks per request
-   * PAYG tier: up to 10,000 blocks per request (we use 10 for compatibility)
+   * Free tier: up to 10 blocks per request, ~10 requests/sec rate limit
+   * PAYG tier: up to 10,000 blocks per request
+   *
+   * Uses exponential backoff for rate limiting
    */
   private async fetchLogsInChunks(fromBlock: number, toBlock: number): Promise<Transaction[]> {
     const CHUNK_SIZE = 10; // Free tier limit (works with PAYG too)
     const transactions: Transaction[] = [];
+    let rateLimitDelay = 200; // Start with 200ms delay (5 req/sec = safe for free tier)
 
     for (let chunk = fromBlock; chunk < toBlock; chunk += CHUNK_SIZE) {
       const chunkEnd = Math.min(chunk + CHUNK_SIZE, toBlock);
@@ -87,13 +90,55 @@ export class BlockchainService {
             logger.warn(`Failed to parse log ${log.transactionHash}`, error);
           }
         }
-      } catch (error) {
-        logger.error(`Failed to fetch logs for block range ${chunk}-${chunkEnd}`, error);
-        // Continue with next chunk instead of throwing
+
+        // Reset delay on success
+        rateLimitDelay = 200;
+
+        // Add delay between requests to respect rate limits
+        await this.sleep(rateLimitDelay);
+      } catch (error: any) {
+        // Handle 429 Too Many Requests with exponential backoff
+        if (error.response?.status === 429) {
+          rateLimitDelay = Math.min(rateLimitDelay * 2, 5000); // Max 5 second delay
+          logger.warn(`Rate limited, backing off to ${rateLimitDelay}ms`);
+
+          // Wait longer before retrying
+          await this.sleep(rateLimitDelay);
+
+          // Retry this chunk
+          try {
+            const retryLogs = await this.alchemyProvider.getLogs(
+              this.contractAddress,
+              `0x${chunk.toString(16)}`,
+              `0x${chunkEnd.toString(16)}`,
+              [TRANSFER_EVENT_SIGNATURE]
+            );
+
+            for (const log of retryLogs) {
+              try {
+                const tx = this.parseTransferLog(log);
+                transactions.push(tx);
+              } catch (e) {
+                logger.warn(`Failed to parse log ${log.transactionHash}`, e);
+              }
+            }
+          } catch (retryError) {
+            logger.error(`Failed to fetch logs for block range ${chunk}-${chunkEnd} after retry`, retryError);
+          }
+        } else {
+          logger.error(`Failed to fetch logs for block range ${chunk}-${chunkEnd}`, error);
+        }
       }
     }
 
     return transactions;
+  }
+
+  /**
+   * Sleep helper for rate limiting
+   */
+  private sleep(ms: number): Promise<void> {
+    return new Promise(resolve => setTimeout(resolve, ms));
   }
 
   /**
