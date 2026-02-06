@@ -41,7 +41,7 @@ export class WebSocketManager {
       });
 
       // Handle errors
-      ws.on('error', (error) => {
+      ws.on('error', (error: Error) => {
         logger.error('WebSocket error', error);
       });
     });
