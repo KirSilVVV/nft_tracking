@@ -1,4 +1,5 @@
 import 'dotenv/config';
+import express from 'express';
 import { NFTBot } from './bot/bot';
 import { initNotificationService } from './services/notification.service';
 import { getBlockchainService } from './services/blockchain.service';
@@ -10,6 +11,39 @@ import { sleep } from './utils/helpers';
 class NFTAnalyticsApp {
   private bot: NFTBot | null = null;
   private isRunning: boolean = false;
+  private httpServer: express.Application;
+
+  constructor() {
+    this.httpServer = express();
+    this.setupHttpServer();
+  }
+
+  /**
+   * Setup Express HTTP server for health checks and Render compatibility
+   */
+  private setupHttpServer(): void {
+    // Health check endpoint
+    this.httpServer.get('/', (req, res) => {
+      res.json({
+        status: 'ok',
+        message: 'NFT Tracking Bot is running',
+        isRunning: this.isRunning
+      });
+    });
+
+    this.httpServer.get('/health', (req, res) => {
+      res.json({
+        status: this.isRunning ? 'healthy' : 'initializing',
+        timestamp: new Date().toISOString()
+      });
+    });
+
+    // Start HTTP server on port 3000
+    const port = process.env.PORT || '3000';
+    this.httpServer.listen(port, () => {
+      logger.info(`✅ HTTP server listening on port ${port}`);
+    });
+  }
 
   /**
    * Start the application
