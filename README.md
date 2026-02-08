@@ -1,345 +1,340 @@
-# NFT Tracking Bot - Mutant Ape Yacht Club Analytics
+# NFT Analytics Platform - Mutant Ape Yacht Club
 
-Real-time Telegram bot for tracking and analyzing Mutant Ape Yacht Club (MAYC) NFT collection transactions on Ethereum.
+Полнофункциональное приложение для анализа и мониторинга транзакций NFT коллекции Mutant Ape Yacht Club (MAYC) в реальном времени.
 
-## 🚀 Features
+## 📊 Возможности
 
-- **Top Holders Analysis**: Identify the largest NFT holders (whales)
-- **Distribution Statistics**: See how NFTs are distributed across holders
-- **Transaction History**: Track all transfers and sales
-- **Trading Metrics**: Volume, average price, floor price by time period
-- **Real-time Monitoring**: WebSocket connection for live updates
-- **Whale Alerts**: Get notified when large holders make moves
-- **RESTful API**: Easy-to-use JSON API endpoints
+✅ **Анализ держателей**
+- Топ-50 крупных держателей ("киты")
+- Распределение NFT по количеству на адрес
+- Подробная информация о каждом держателе
 
-## 📋 Prerequisites
+✅ **История транзакций**
+- Все Transfer события контракта
+- Фильтрация по времени
+- Детали каждой транзакции
 
-- Node.js 20+
-- npm or yarn
-- Alchemy API key (get one at https://dashboard.alchemy.com/)
+✅ **Торговые метрики**
+- Количество транзакций за период
+- Объем торгов (в ETH)
+- Средняя и медианная цена
+- Floor price (минимальная цена пола)
+- Топовая транзакция по цене
 
-## ⚙️ Installation
+✅ **Real-time мониторинг**
+- WebSocket подключение для live обновлений
+- Алерты о китах (крупные покупки/продажи)
+- Алерты о крупных сделках
+- Периодические обновления метрик
+
+✅ **REST API**
+- JSON API для всех данных
+- Кэширование для производительности
+- Простые и удобные эндпоинты
+
+## 📁 Структура проекта
+
+```
+nft-analytics/
+├── backend/                 # Node.js/TypeScript бэкенд
+│   ├── src/
+│   │   ├── services/        # Бизнес-логика
+│   │   │   ├── blockchain.service.ts
+│   │   │   ├── analytics.service.ts
+│   │   │   └── cache.service.ts
+│   │   ├── providers/       # Работа с API
+│   │   │   └── alchemy.provider.ts
+│   │   ├── models/          # TypeScript интерфейсы
+│   │   ├── api/             # Маршруты и WebSocket
+│   │   ├── utils/           # Утилиты
+│   │   └── index.ts         # Точка входа
+│   ├── dist/                # Скомпилированный код
+│   ├── package.json
+│   ├── tsconfig.json
+│   └── README.md
+│
+├── frontend/                # (планируется) React фронтенд
+│
+└── README.md               # Этот файл
+```
+
+## 🚀 Быстрый старт
+
+### 1. Установка зависимостей
 
 ```bash
 cd backend
 npm install
 ```
 
-## 🔧 Configuration
+### 2. Конфигурация
 
-1. Copy `.env.example` to `.env`:
+Скопируйте `.env.example` в `.env` и добавьте ваш Alchemy API ключ:
+
 ```bash
 cp .env.example .env
 ```
 
-2. Fill in your Alchemy API key:
+Отредактируйте `.env`:
 ```env
 ALCHEMY_API_KEY=your_api_key_here
 ALCHEMY_NETWORK=eth-mainnet
 NFT_CONTRACT_ADDRESS=0x60E4d786628Fea6478F785A6d7e704777c86a7c6
 PORT=3000
 WS_PORT=3001
-LOG_LEVEL=info
 ```
 
-## 🏃 Running the Server
+### 3. Запуск
 
-Development mode (with hot reload):
+Development режим:
 ```bash
 npm run dev
 ```
 
-Production build:
+Production:
 ```bash
 npm run build
 npm start
 ```
 
-The server will start on `http://localhost:3000` and WebSocket on `ws://localhost:3001`
+Сервер запустится на `http://localhost:3000`
 
-## 📡 API Endpoints
+## 📡 API эндпоинты
 
-### Health Check
-```
-GET /api/health
-```
-Returns server status.
-
-### Top Holders
-```
-GET /api/holders/top?limit=50
-```
-Get the top N NFT holders by count.
-
-**Response:**
-```json
-{
-  "count": 50,
-  "limit": 50,
-  "holders": [
-    {
-      "address": "0x...",
-      "count": 542,
-      "tokenIds": [1, 2, 3, ...],
-      "firstSeen": "2021-04-23T18:25:43.511Z",
-      "lastActivity": "2026-02-06T07:51:25.000Z",
-      "percentageOfCollection": 5.42
-    }
-  ],
-  "timestamp": "2026-02-06T09:50:25.123Z"
-}
-```
-
-### Holder Distribution
-```
-GET /api/holders/distribution
-```
-Get statistics on how NFTs are distributed.
-
-**Response:**
-```json
-{
-  "totalHolders": 9999,
-  "totalSupply": 10000,
-  "averageNFTsPerHolder": 1.00,
-  "distribution": {
-    "single": 9000,
-    "small": 800,
-    "medium": 150,
-    "whales": 49
-  },
-  "timestamp": "2026-02-06T09:50:25.123Z"
-}
-```
-
-### Specific Holder
-```
-GET /api/holders/:address
-```
-Get details for a specific holder address.
-
-### Recent Transactions
-```
-GET /api/transactions/recent?hours=24&limit=100
-```
-Get recent transactions within the specified hour window.
-
-### Trading Metrics
-```
-GET /api/metrics?period=24h
-```
-Get trading metrics for a specific period. Periods: `24h`, `7d`, `30d`
-
-**Response:**
-```json
-{
-  "period": "24h",
-  "metrics": {
-    "transactionCount": 150,
-    "volume": 1250.75,
-    "avgPrice": 8.34,
-    "medianPrice": 7.50,
-    "uniqueBuyers": 45,
-    "uniqueSellers": 38,
-    "floorPrice": 5.00,
-    "topTransaction": {
-      "tokenId": 5000,
-      "priceETH": 50.5
-    }
-  },
-  "timestamp": "2026-02-06T09:50:25.123Z"
-}
-```
-
-### Whale Addresses
-```
-GET /api/whales?minNFTs=10
-```
-Get list of whale addresses (holders with 10+ NFTs by default).
-
-### Cache Stats
-```
-GET /api/cache/stats
-```
-Get cache statistics and hit/miss rates.
-
-### Clear Cache
-```
-POST /api/cache/clear
-```
-Clear the application cache.
-
-## 🔌 WebSocket Events
-
-Connect to `ws://localhost:3001` to receive real-time updates.
-
-### new_transfer
-Emitted when a new NFT transfer occurs.
-```json
-{
-  "type": "new_transfer",
-  "data": {
-    "txHash": "0x...",
-    "from": "0x...",
-    "to": "0x...",
-    "tokenId": 1234,
-    "blockNumber": 19000000,
-    "timestamp": "2026-02-06T09:50:25.123Z",
-    "transactionType": "transfer"
-  }
-}
-```
-
-### whale_alert
-Emitted when a whale (10+ NFT holder) makes a transaction.
-```json
-{
-  "type": "whale_alert",
-  "data": {
-    "whaleAddress": "0x...",
-    "action": "buy",
-    "tokenIds": [100, 101, 102],
-    "totalNFTs": 25,
-    "timestamp": "2026-02-06T09:50:25.123Z"
-  }
-}
-```
-
-### large_sale
-Emitted when a high-value sale occurs.
-```json
-{
-  "type": "large_sale",
-  "data": {
-    "tokenId": 5000,
-    "priceETH": 50.5,
-    "from": "0x...",
-    "to": "0x...",
-    "txHash": "0x...",
-    "timestamp": "2026-02-06T09:50:25.123Z"
-  }
-}
-```
-
-### metrics_update
-Emitted every 10 minutes with updated trading metrics.
-```json
-{
-  "type": "metrics_update",
-  "data": {
-    "period": "24h",
-    "metrics": { ... },
-    "timestamp": "2026-02-06T09:50:25.123Z"
-  }
-}
-```
-
-### top_holders_update
-Emitted every 30 minutes with updated top holders list.
-```json
-{
-  "type": "top_holders_update",
-  "data": {
-    "topHolders": [ ... ],
-    "timestamp": "2026-02-06T09:50:25.123Z"
-  }
-}
-```
-
-## 🧪 Testing
-
-Test the API endpoints:
-
+### Получить топ-50 держателей
 ```bash
-# Health check
-curl http://localhost:3000/api/health
+curl http://localhost:3000/api/holders/top?limit=50
+```
 
-# Top holders
-curl http://localhost:3000/api/holders/top?limit=10
+### Получить распределение NFT
+```bash
+curl http://localhost:3000/api/holders/distribution
+```
 
-# Metrics for 24 hours
+### Получить метрики за 24 часа
+```bash
 curl http://localhost:3000/api/metrics?period=24h
+```
 
-# Whales
+### Получить "китов" (10+ NFT)
+```bash
 curl http://localhost:3000/api/whales
 ```
 
-Test WebSocket connection (using wscat):
+### Получить недавние транзакции
 ```bash
-npm install -g wscat
-wscat -c ws://localhost:3001
+curl http://localhost:3000/api/transactions/recent?hours=24
 ```
 
-## 📊 Architecture
+Полная документация API - см. [backend/README.md](./backend/README.md)
 
-```
-backend/
-├── src/
-│   ├── services/              # Business logic
-│   │   ├── blockchain.service.ts    # Blockchain interaction
-│   │   ├── analytics.service.ts     # Analytics calculations
-│   │   └── cache.service.ts         # Caching layer
-│   ├── providers/             # External APIs
-│   │   └── alchemy.provider.ts      # Alchemy API wrapper
-│   ├── models/                # TypeScript interfaces
-│   ├── api/                   # API endpoints
-│   │   ├── routes.ts          # REST routes
-│   │   └── websocket.ts       # WebSocket server
-│   ├── utils/                 # Utilities
-│   │   ├── logger.ts          # Logging
-│   │   └── helpers.ts         # Helper functions
-│   └── index.ts               # Application entry point
-├── dist/                      # Compiled JavaScript
-└── package.json
+## 🔌 WebSocket Events
+
+Подключитесь к `ws://localhost:3001` для real-time обновлений:
+
+```javascript
+const ws = new WebSocket('ws://localhost:3001');
+
+ws.onmessage = (event) => {
+  const data = JSON.parse(event.data);
+
+  if (data.type === 'new_transfer') {
+    console.log('Новый трансфер:', data.data);
+  } else if (data.type === 'whale_alert') {
+    console.log('Активность кита:', data.data);
+  }
+};
 ```
 
-## 🔐 Security Notes
+Доступные события:
+- `new_transfer` - новый трансфер NFT
+- `whale_alert` - активность кита (10+ NFT)
+- `large_sale` - крупная сделка
+- `metrics_update` - обновление метрик (каждые 10 мин)
+- `top_holders_update` - обновление топ-50 (каждые 30 мин)
 
-- Never commit your `.env` file with real API keys
-- Use environment variables for sensitive data
-- Consider rate limiting in production
-- Validate all inputs on the API layer
+## 📊 Примеры использования
 
-## 📈 Performance Considerations
+### JavaScript/Node.js
 
-- Caching is used to reduce API calls to Alchemy
-- Cache TTL (Time-To-Live) is set appropriately for different data types
-- WebSocket broadcasts are efficient and only go to connected clients
-- Historical data fetching is memory-efficient with chunking
+```javascript
+// Получить топ держателей
+const response = await fetch('http://localhost:3000/api/holders/top?limit=10');
+const data = await response.json();
+console.log('Топ 10 держателей:');
+data.holders.forEach((holder, i) => {
+  console.log(`${i+1}. ${holder.address}: ${holder.count} NFT`);
+});
 
-## 🚀 Future Enhancements
+// Получить метрики
+const metricsResponse = await fetch('http://localhost:3000/api/metrics?period=24h');
+const metrics = await metricsResponse.json();
+console.log('Объем торгов за 24ч:', metrics.metrics.volume, 'ETH');
+```
 
-1. **Database Integration**: Store historical data in PostgreSQL
-2. **Advanced Analytics**: ML-based price prediction
-3. **Email/SMS Alerts**: Notify users of important events
-4. **Mobile App**: React Native client
-5. **Multiple Collections**: Support for other NFT collections
-6. **Dashboard UI**: Beautiful web interface for data visualization
-7. **Trading Signals**: Algorithmic detection of trading patterns
-8. **Market Comparisons**: Compare MAYC with other blue-chip NFTs
+### Python
 
-## 🐛 Troubleshooting
+```python
+import requests
 
-### API key not recognized
-- Check that `ALCHEMY_API_KEY` is correctly set in `.env`
-- Verify the key is valid at https://dashboard.alchemy.com/
+# Получить распределение
+response = requests.get('http://localhost:3000/api/holders/distribution')
+data = response.json()
+print(f"Всего держателей: {data['totalHolders']}")
+print(f"Все NFT распределены между: {data['distribution']}")
+```
 
-### WebSocket connection refused
-- Ensure `WS_PORT` is not in use
-- Check firewall settings
+## 🔍 Что показывает каждый эндпоинт
 
-### Slow response times
-- Cache data is automatically refreshed; wait for refresh or manually clear cache
-- Consider increasing `PORT` and `WS_PORT` if system resources are low
+### `/api/holders/top`
+**Для чего**: Найти крупных держателей ("китов")
+- Адрес кошелька
+- Количество NFT
+- Процент от коллекции
+- Дата первого получения NFT
+- Дата последней активности
 
-## 📝 License
+### `/api/holders/distribution`
+**Для чего**: Понять распределение коллекции
+- Сколько адресов владеют 1 NFT
+- Сколько владеют 2-5 NFT
+- Сколько владеют 6-10 NFT
+- Сколько владеют 10+ NFT (киты)
+
+### `/api/transactions/recent`
+**Для чего**: Отслеживать последние сделки
+- Хэш транзакции
+- От кого к кому
+- ID токена
+- Тип (mint, transfer, sale)
+- Цена (если доступна)
+
+### `/api/metrics`
+**Для чего**: Анализ торговой активности за период
+- Количество транзакций
+- Объем в ETH
+- Средняя цена NFT
+- Floor price (самая низкая цена)
+- Уникальные покупатели/продавцы
+
+## 🏗️ Архитектура
+
+### Слои приложения
+
+1. **Blockchain Layer** (`BlockchainService`)
+   - Получение событий Transfer из смарт-контракта
+   - Real-time подписка на новые события
+   - Работа с блокчейном через Alchemy API
+
+2. **Analytics Layer** (`AnalyticsService`)
+   - Построение списка держателей из событий
+   - Расчет метрик и статистики
+   - Обнаружение "китов" и крупных сделок
+
+3. **Cache Layer** (`CacheService`)
+   - In-memory кэширование результатов
+   - TTL (время жизни) для разных типов данных
+   - Экономия API запросов
+
+4. **API Layer**
+   - REST endpoints с Express.js
+   - WebSocket сервер для real-time
+   - JSON responses
+
+5. **Provider Layer** (`AlchemyProvider`)
+   - Обертка для Alchemy JSON-RPC API
+   - Обработка ошибок и retry логика
+
+## 🚦 Flow данных
+
+```
+Alchemy Blockchain
+        ↓
+BlockchainService (получает события)
+        ↓
+AnalyticsService (обрабатывает и анализирует)
+        ↓
+CacheService (кэширует результаты)
+        ↓
+API Endpoints & WebSocket (отправляет клиентам)
+        ↓
+Frontend / Пользователь
+```
+
+## ⚙️ Обновление данных
+
+- **Топ держатели**: Обновляются каждые 30 минут
+- **Метрики**: Обновляются каждые 10 минут
+- **Real-time события**: Отправляются сразу при возникновении
+- **Кэш TTL**: 5-10 минут для разных типов данных
+
+## 🔐 Безопасность
+
+- API ключ хранится только в `.env` файле
+- Никогда не коммитьте `.env` в git
+- Используйте переменные окружения для всех чувствительных данных
+- WebSocket не требует аутентификации (для демо)
+
+## 📈 Масштабируемость
+
+Текущее решение оптимизировано для:
+- Одной коллекции (MAYC)
+- Примерно 10,000 NFT
+- Несколько тысяч одновременных запросов в сек
+- Несколько сотен WebSocket клиентов
+
+Для масштабирования до production:
+1. Добавить PostgreSQL для хранения истории
+2. Добавить Redis для распределенного кэширования
+3. Запустить несколько инстансов с load balancer'ом
+4. Добавить мониторинг и логирование (ELK, DataDog)
+
+## 🛠️ Технологический стек
+
+- **Runtime**: Node.js 20+
+- **Язык**: TypeScript
+- **Web Framework**: Express.js
+- **Real-time**: WebSocket (ws)
+- **Blockchain**: ethers.js
+- **API**: Alchemy JSON-RPC
+- **Кэш**: node-cache (in-memory)
+- **Логирование**: Custom logger
+
+## 📚 Что было реализовано (День 1)
+
+✅ Полная инициализация проекта с TypeScript
+✅ Alchemy провайдер для работы с блокчейном
+✅ BlockchainService для получения Transfer событий
+✅ AnalyticsService для расчета метрик
+✅ CacheService для кэширования
+✅ REST API с 8 основными эндпоинтами
+✅ WebSocket сервер для real-time обновлений
+✅ Автоматический мониторинг блокчейна
+✅ Документация и примеры
+
+## 🎯 Следующие фазы
+
+**День 2-3**: Расширенная аналитика
+- Интеграция с OpenSea для цен
+- Интеграция с Etherscan для верификации
+- ENS resolution для известных адресов
+
+**День 4-5**: Real-time оптимизация
+- WebSocket оптимизация
+- Обнаружение паттернов трейдинга
+- Алерты на основе правил
+
+**День 6**: Frontend визуализация
+- React приложение
+- Интерактивные графики
+- Таблицы и фильтры
+
+## 📞 Поддержка
+
+Все команды для работы с проектом находятся в `backend/README.md`
+
+Полный план разработки: `backend/../../claude.plans/bubbly-sprouting-canyon.md`
+
+## 📄 Лицензия
 
 MIT
-
-## 🤝 Contributing
-
-This is a demonstration project. Feel free to fork and modify for your needs.
-
-## 📞 Support
-
-For issues or questions, check the architecture diagrams in the plan file: `../claude.plans/bubbly-sprouting-canyon.md`
