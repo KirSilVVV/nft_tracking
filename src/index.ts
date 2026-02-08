@@ -2,12 +2,18 @@ import 'dotenv/config';
 import express, { Express } from 'express';
 import cors from 'cors';
 import http from 'http';
+import multer from 'multer';
 import routes from './api/routes';
 import { WebSocketManager } from './api/websocket';
 import { getBlockchainService } from './services/blockchain.service';
 import { getAnalyticsService } from './services/analytics.service';
 import { getCacheService } from './services/cache.service';
 import { getEnrichmentService } from './services/enrichment.service';
+import { getENSService } from './services/ens.service';
+import { getImageSearchService } from './services/image-search.service';
+import { getAlertMonitorService } from './services/alert-monitor.service';
+import { getEmailService } from './services/email.service';
+import { getOpenSeaProvider } from './providers/opensea.provider';
 import { logger } from './utils/logger';
 import { sleep } from './utils/helpers';
 
@@ -26,7 +32,12 @@ class App {
    * Initialize Express middleware
    */
   private initializeMiddleware(): void {
-    this.express.use(cors());
+    // CORS configuration - allow all origins for development
+    this.express.use(cors({
+      origin: '*',
+      methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+      allowedHeaders: ['Content-Type', 'Authorization'],
+    }));
     this.express.use(express.json());
     this.express.use(express.urlencoded({ extended: true }));
 
@@ -41,9 +52,9 @@ class App {
    * Initialize routes
    */
   private initializeRoutes(): void {
-    // Test route to debug
-    this.express.get('/test', (req, res) => {
-      res.json({ status: 'test route works' });
+    // Health check
+    this.express.get('/health', (req, res) => {
+      res.json({ status: 'ok', uptime: process.uptime() });
     });
 
     // Whale tracker routes (direct handlers)
@@ -51,34 +62,110 @@ class App {
     const analyticsService = getAnalyticsService();
 
     this.express.get('/api/whales/top', async (req, res) => {
+      const limit = parseInt(req.query.limit as string) || 50;
+      const skipENS = req.query.skipENS === 'true';
+      const MAYC_TOTAL_SUPPLY = 19423;
+
       try {
-        const limit = parseInt(req.query.limit as string) || 50;
+        logger.info('Fetching real MAYC transfer events from blockchain...');
         const events = await blockchainService.getAllTransferEvents(0);
+
+        if (events.length === 0) {
+          return res.status(503).json({
+            error: 'No transfer events available yet',
+            message: 'Blockchain data is still loading. Please try again in a few minutes.',
+          });
+        }
+
+        logger.info(`Got ${events.length} real transfer events`);
         const allHolders = analyticsService.buildHoldersList(events);
+        logger.info(`Built ${allHolders.length} real holders list`);
+
         const topWhales = allHolders.sort((a, b) => b.count - a.count).slice(0, limit);
-        const floorPrice = 5.5;
         const totalUniqueHolders = new Set(allHolders.map(h => h.address)).size;
 
-        res.json({
-          whales: topWhales.map((w, idx) => ({
-            rank: idx + 1,
-            address: w.address,
-            ensName: w.ensName || null,
-            nftCount: w.count,
-            nftIds: w.tokenIds || [],
-            percentageOfCollection: ((w.count / 10000) * 100).toFixed(2),
-            floorPrice,
-            estimatedValueETH: (w.count * floorPrice).toFixed(2),
-          })),
+        // Get accurate floor price from OpenSea API
+        let floorPrice: number | null = null;
+        try {
+          const openSeaProvider = getOpenSeaProvider();
+          const stats = await openSeaProvider.getCollectionStats('mutant-ape-yacht-club');
+          floorPrice = stats?.floorPrice || null;
+          logger.info(`✅ OpenSea floor price: ${floorPrice} ETH`);
+        } catch (error) {
+          logger.warn('⚠️ Failed to fetch OpenSea floor price, continuing without');
+        }
+
+        // Batch ENS enrichment
+        let ensDataMap = new Map<string, any>();
+        if (!skipENS) {
+          try {
+            logger.info(`Batch resolving ENS names for ${topWhales.length} whales...`);
+            const ensService = getENSService();
+            ensDataMap = await ensService.resolveBatch(topWhales.map(w => w.address));
+            logger.info(`Resolved ${ensDataMap.size} ENS names`);
+          } catch (ensError) {
+            logger.warn(`ENS enrichment failed, continuing without ENS data: ${(ensError as any)?.message}`);
+          }
+        }
+
+        // Batch ETH balance fetching (cached 30min per address)
+        const ethBalanceMap = new Map<string, string>();
+        try {
+          const enrichmentService = getEnrichmentService();
+          logger.info(`Fetching ETH balances for ${topWhales.length} whales...`);
+          const batchSize = 10;
+          for (let i = 0; i < topWhales.length; i += batchSize) {
+            const batch = topWhales.slice(i, i + batchSize);
+            const results = await Promise.allSettled(
+              batch.map(w => enrichmentService.getETHBalance(w.address))
+            );
+            results.forEach((result, j) => {
+              if (result.status === 'fulfilled') {
+                ethBalanceMap.set(batch[j].address.toLowerCase(), result.value);
+              }
+            });
+            if (i + batchSize < topWhales.length) await sleep(100);
+          }
+          logger.info(`Fetched ${ethBalanceMap.size} ETH balances`);
+        } catch (balanceError) {
+          logger.warn(`ETH balance fetch failed, continuing without: ${(balanceError as any)?.message}`);
+        }
+
+        return res.json({
+          whales: topWhales.map((w, idx) => {
+            const ensData = ensDataMap.get(w.address.toLowerCase());
+            const ethBal = ethBalanceMap.get(w.address.toLowerCase());
+            return {
+              rank: idx + 1,
+              address: w.address,
+              ensName: ensData?.ensName || w.ensName || null,
+              ensAvatar: ensData?.avatar || null,
+              twitter: ensData?.twitter || null,
+              email: ensData?.email || null,
+              nftCount: w.count,
+              nftIds: w.tokenIds || [],
+              percentageOfCollection: parseFloat(((w.count / MAYC_TOTAL_SUPPLY) * 100).toFixed(2)),
+              floorPrice,
+              estimatedValueETH: floorPrice ? parseFloat((w.count * floorPrice).toFixed(2)) : null,
+              ethBalance: ethBal ? parseFloat(parseFloat(ethBal).toFixed(4)) : null,
+              firstSeen: w.firstSeen?.toISOString() || new Date(2021, 0, 1).toISOString(),
+              lastActivity: w.lastActivity?.toISOString() || new Date().toISOString(),
+            };
+          }),
           totalCount: topWhales.length,
           totalUniqueHolders,
           floorPrice,
-          cachedAt: null,
+          ensResolved: ensDataMap.size,
+          cachedAt: false,
           lastUpdated: new Date(),
+          _source: 'blockchain_real_data',
         });
       } catch (error) {
-        logger.error('Error fetching top whales', error);
-        res.status(500).json({ error: 'Failed to fetch top whales' });
+        logger.error('Blockchain API error in /api/whales/top', error);
+        res.status(500).json({
+          error: 'Failed to fetch whale data',
+          details: (error as any)?.message,
+        });
       }
     });
 
@@ -89,6 +176,7 @@ class App {
           return res.status(400).json({ error: 'Invalid Ethereum address' });
         }
 
+        const MAYC_TOTAL_SUPPLY = 19423;
         const events = await blockchainService.getAllTransferEvents(0);
         const allHolders = analyticsService.buildHoldersList(events);
         const whale = allHolders.find(h => h.address.toLowerCase() === address.toLowerCase());
@@ -97,7 +185,16 @@ class App {
           return res.status(404).json({ error: 'Address not found' });
         }
 
-        const floorPrice = 5.5;
+        // Get floor price from OpenSea (ACCURATE!)
+        const openSeaProvider = getOpenSeaProvider();
+        let floorPrice: number | null = null;
+        try {
+          const stats = await openSeaProvider.getCollectionStats('mutant-ape-yacht-club');
+          floorPrice = stats?.floorPrice || null;
+        } catch (error) {
+          logger.warn('Failed to get OpenSea floor price');
+        }
+
         const rank = allHolders.sort((a, b) => b.count - a.count).findIndex(h => h.address.toLowerCase() === address.toLowerCase()) + 1;
 
         res.json({
@@ -106,9 +203,9 @@ class App {
           rank,
           nftCount: whale.count,
           nftIds: whale.tokenIds || [],
-          percentageOfCollection: ((whale.count / 10000) * 100).toFixed(2),
+          percentageOfCollection: ((whale.count / MAYC_TOTAL_SUPPLY) * 100).toFixed(2),
           floorPrice,
-          estimatedValueETH: (whale.count * floorPrice).toFixed(2),
+          estimatedValueETH: floorPrice ? (whale.count * floorPrice).toFixed(2) : null,
           lastUpdated: new Date(),
         });
       } catch (error) {
@@ -126,8 +223,8 @@ class App {
           single: allHolders.filter(h => h.count === 1).length,
           small: allHolders.filter(h => h.count >= 2 && h.count <= 5).length,
           medium: allHolders.filter(h => h.count >= 6 && h.count <= 10).length,
-          large: allHolders.filter(h => h.count >= 11 && h.count <= 50).length,
-          whales: allHolders.filter(h => h.count > 50).length,
+          large: allHolders.filter(h => h.count >= 11 && h.count <= 19).length,
+          whales: allHolders.filter(h => h.count >= 20).length,  // ✅ FIXED: Whales = 20+ NFTs (real data)
         };
 
         const topWhales = allHolders.sort((a, b) => b.count - a.count).slice(0, 10);
@@ -146,18 +243,436 @@ class App {
 
     this.express.get('/api/whales/stats', async (req, res) => {
       try {
+        logger.info('Fetching stats from blockchain...');
         const events = await blockchainService.getAllTransferEvents(0);
         const allHolders = analyticsService.buildHoldersList(events);
 
+        // Compute real floor price and volume from sales data
+        const recentSales = events.filter((e: any) => e.priceETH && e.priceETH > 0);
+        const floorPrice = recentSales.length > 0
+          ? parseFloat(Math.min(...recentSales.map((e: any) => e.priceETH)).toFixed(4))
+          : null;
+        const totalVolume = recentSales.length > 0
+          ? parseFloat(recentSales.reduce((sum: number, e: any) => sum + e.priceETH, 0).toFixed(4))
+          : null;
+
         res.json({
           totalHolders: allHolders.length,
-          floorPrice: 5.5,
-          totalVolume: (allHolders.length * 5.5).toFixed(2),
+          floorPrice,
+          totalVolume,
           lastUpdated: new Date(),
+          cachedAt: false,
         });
       } catch (error) {
         logger.error('Error fetching stats', error);
-        res.status(500).json({ error: 'Failed to fetch stats' });
+        res.status(500).json({
+          error: 'Failed to fetch stats',
+          details: (error as any)?.message,
+        });
+      }
+    });
+
+    // ===== WHALE ACTIVITY HISTORY =====
+    this.express.get('/api/whales/:address/activity', async (req, res) => {
+      try {
+        const { address } = req.params;
+        if (!address.match(/^0x[a-fA-F0-9]{40}$/i)) {
+          return res.status(400).json({ error: 'Invalid Ethereum address' });
+        }
+
+        const limit = parseInt(req.query.limit as string) || 50;
+        const offset = parseInt(req.query.offset as string) || 0;
+        const addrLower = address.toLowerCase();
+        const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000';
+
+        const events = await blockchainService.getAllTransferEvents(0);
+        const allHolders = analyticsService.buildHoldersList(events);
+        const holder = allHolders.find(h => h.address.toLowerCase() === addrLower);
+
+        // Filter events for this address (both as sender and receiver)
+        const addressEvents = events.filter((e: any) =>
+          e.from.toLowerCase() === addrLower || e.to.toLowerCase() === addrLower
+        );
+
+        // Classify and format
+        const allActivity = addressEvents
+          .map((e: any) => {
+            let action: 'buy' | 'sell' | 'mint' | 'transfer_in' | 'transfer_out';
+            let counterparty: string;
+
+            if (e.from.toLowerCase() === ZERO_ADDRESS && e.to.toLowerCase() === addrLower) {
+              action = 'mint';
+              counterparty = ZERO_ADDRESS;
+            } else if (e.to.toLowerCase() === addrLower) {
+              action = e.priceETH ? 'buy' : 'transfer_in';
+              counterparty = e.from;
+            } else {
+              action = e.priceETH ? 'sell' : 'transfer_out';
+              counterparty = e.to;
+            }
+
+            return {
+              timestamp: typeof e.timestamp === 'number'
+                ? new Date(e.timestamp * 1000).toISOString()
+                : new Date(e.timestamp).toISOString(),
+              action,
+              tokenId: e.tokenId,
+              counterparty,
+              priceETH: e.priceETH || null,
+              txHash: e.transactionHash || e.txHash || null,
+            };
+          })
+          .sort((a: any, b: any) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+
+        // Summary stats
+        const buys = allActivity.filter((a: any) => a.action === 'buy' || a.action === 'transfer_in').length;
+        const sells = allActivity.filter((a: any) => a.action === 'sell' || a.action === 'transfer_out').length;
+        const mints = allActivity.filter((a: any) => a.action === 'mint').length;
+        const volumeETH = allActivity
+          .filter((a: any) => a.priceETH)
+          .reduce((sum: number, a: any) => sum + a.priceETH, 0);
+
+        // Rank
+        const sorted = allHolders.sort((a, b) => b.count - a.count);
+        const rank = sorted.findIndex(h => h.address.toLowerCase() === addrLower) + 1;
+
+        // Paginate
+        const paginated = allActivity.slice(offset, offset + limit);
+
+        res.json({
+          address,
+          ensName: holder?.ensName || null,
+          currentHoldings: holder?.count || 0,
+          rank: rank > 0 ? rank : null,
+          activity: paginated,
+          summary: {
+            buys,
+            sells,
+            mints,
+            totalEvents: allActivity.length,
+            volumeETH: parseFloat(volumeETH.toFixed(4)),
+          },
+          pagination: {
+            offset,
+            limit,
+            total: allActivity.length,
+          },
+          _source: 'real_blockchain_data',
+          lastUpdated: new Date(),
+        });
+      } catch (error) {
+        logger.error('Error fetching whale activity', error);
+        res.status(500).json({ error: 'Failed to fetch whale activity' });
+      }
+    });
+
+    // ===== NFT METADATA ENDPOINT (MUTANT FINDER) =====
+    this.express.get('/api/nft/:tokenId', async (req, res) => {
+      try {
+        const tokenId = req.params.tokenId;
+        const tokenIdNum = parseInt(tokenId);
+
+        if (isNaN(tokenIdNum) || tokenIdNum < 0 || tokenIdNum > 29999) {
+          return res.status(400).json({ error: 'Invalid token ID. Must be 0-29999.' });
+        }
+
+        logger.info(`GET /api/nft/${tokenId}`);
+
+        const MAYC_CONTRACT = '0x60E4d786628Fea6478F785A6d7e704777c86a7c6';
+
+        // Check cache first
+        const cached = getCacheService().getNftMetadata(tokenId);
+        if (cached) {
+          logger.info(`Cache hit for NFT #${tokenId}`);
+          return res.json(cached);
+        }
+
+        // Fetch metadata from Alchemy SDK
+        const { getAlchemySDKProvider } = await import('./providers/alchemy-sdk.provider');
+        const alchemySDK = getAlchemySDKProvider();
+        const metadata = await alchemySDK.getNftMetadata(MAYC_CONTRACT, tokenId);
+
+        // Get transfer history for this tokenId from cached events
+        const events = await blockchainService.getAllTransferEvents(0);
+        const tokenEvents = events.filter((e: any) => String(e.tokenId) === tokenId);
+        const history = tokenEvents
+          .sort((a: any, b: any) => {
+            const timeA = typeof a.timestamp === 'number' ? a.timestamp : new Date(a.timestamp).getTime() / 1000;
+            const timeB = typeof b.timestamp === 'number' ? b.timestamp : new Date(b.timestamp).getTime() / 1000;
+            return timeB - timeA;
+          })
+          .map((e: any) => ({
+            timestamp: typeof e.timestamp === 'number' ? new Date(e.timestamp * 1000).toISOString() : e.timestamp,
+            from: e.from,
+            to: e.to,
+            priceETH: e.priceETH || null,
+            txHash: e.txHash || '',
+          }));
+
+        // Determine current owner from most recent transfer
+        const latestTransfer = history[0];
+        const owner = latestTransfer?.to || null;
+
+        // Resolve owner ENS
+        let ownerENS: string | null = null;
+        if (owner) {
+          try {
+            const ensData = await getENSService().resolveAddress(owner);
+            ownerENS = ensData?.ensName || null;
+          } catch { /* ignore ENS errors */ }
+        }
+
+        // Get last sale price
+        const salesWithPrice = history.filter((h: any) => h.priceETH && h.priceETH > 0);
+        const lastSalePrice = salesWithPrice.length > 0 ? salesWithPrice[0].priceETH : null;
+
+        // Get floor price from recent sales
+        const allSales = events.filter((e: any) => e.priceETH && e.priceETH > 0);
+        const floorPrice = allSales.length > 0
+          ? parseFloat(Math.min(...allSales.map((e: any) => e.priceETH)).toFixed(4))
+          : null;
+
+        const result = {
+          tokenId: tokenIdNum,
+          contractAddress: MAYC_CONTRACT,
+          name: metadata.name.toLowerCase().includes('mutant') ? metadata.name : `Mutant Ape Yacht Club ${metadata.name.startsWith('#') ? metadata.name : '#' + tokenId}`,
+          description: metadata.description,
+          image: metadata.image,
+          owner,
+          ownerENS,
+          traits: metadata.traits,
+          history: history.slice(0, 50),
+          lastSalePrice,
+          floorPrice,
+        };
+
+        // Cache the result
+        getCacheService().setNftMetadata(tokenId, result);
+
+        res.json(result);
+      } catch (error) {
+        logger.error(`Error fetching NFT metadata for #${req.params.tokenId}`, error);
+        res.status(500).json({ error: 'Failed to fetch NFT metadata' });
+      }
+    });
+
+    // ===== REVERSE IMAGE SEARCH ENDPOINT =====
+    const upload = multer({
+      storage: multer.memoryStorage(),
+      limits: { fileSize: 10 * 1024 * 1024 }, // 10MB limit
+      fileFilter: (req, file, cb) => {
+        const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+        if (allowedTypes.includes(file.mimetype)) {
+          cb(null, true);
+        } else {
+          cb(new Error('Invalid file type. Only JPEG, PNG, GIF, and WebP are allowed.'));
+        }
+      },
+    });
+
+    this.express.post('/api/nft/search-by-image', upload.single('image'), async (req, res) => {
+      try {
+        if (!req.file) {
+          return res.status(400).json({ error: 'No image file provided' });
+        }
+
+        const limit = parseInt(req.query.limit as string) || 10;
+        const threshold = parseInt(req.query.threshold as string) || 70;
+
+        logger.info(`Reverse image search: ${req.file.size} bytes, limit=${limit}, threshold=${threshold}%`);
+
+        const imageSearchService = getImageSearchService();
+        const results = await imageSearchService.searchByImage(req.file.buffer, limit, threshold);
+
+        // Fetch metadata for matching NFTs
+        const { getAlchemySDKProvider } = await import('./providers/alchemy-sdk.provider');
+        const alchemySDK = getAlchemySDKProvider();
+        const MAYC_CONTRACT = '0x60E4d786628Fea6478F785A6d7e704777c86a7c6';
+
+        const matches = await Promise.all(
+          results.map(async (result) => {
+            try {
+              const metadata = await alchemySDK.getNftMetadata(MAYC_CONTRACT, String(result.tokenId));
+              return {
+                tokenId: result.tokenId,
+                name: `Mutant Ape Yacht Club #${result.tokenId}`,
+                image: metadata.image,
+                similarity: result.similarity,
+                hammingDistance: result.hammingDistance,
+              };
+            } catch (error) {
+              logger.warn(`Failed to fetch metadata for NFT #${result.tokenId}`, error);
+              return null;
+            }
+          })
+        );
+
+        const validMatches = matches.filter((m) => m !== null);
+
+        res.json({
+          matches: validMatches,
+          count: validMatches.length,
+          threshold,
+          uploadedImageSize: req.file.size,
+        });
+      } catch (error) {
+        logger.error('Reverse image search failed', error);
+        res.status(500).json({ error: 'Image search failed' });
+      }
+    });
+
+    // ===== REAL METRICS ENDPOINT WITH ACTUAL BLOCKCHAIN DATA =====
+    this.express.get('/api/metrics', async (req, res) => {
+      try {
+        const period = req.query.period || '24h';
+        logger.info(`📊 Fetching REAL metrics for period: ${period}`);
+
+        // Parse period to hours
+        let hours = 24;
+        if (period === '7d') hours = 168;
+        if (period === '30d') hours = 720;
+
+        // Fetch REAL transfer events from blockchain
+        const events = await blockchainService.getAllTransferEvents(0);
+        logger.info(`✅ Got ${events.length} real transfer events from blockchain`);
+
+        // Filter events within time window
+        const now = Math.floor(Date.now() / 1000);
+        const cutoffTime = now - (hours * 3600);
+        const eventsInWindow = events.filter((e: any) => {
+          const eventTime = typeof e.timestamp === 'number' ? e.timestamp : new Date(e.timestamp).getTime() / 1000;
+          return eventTime >= cutoffTime;
+        });
+
+        logger.info(`✅ ${eventsInWindow.length} events within ${hours}h window`);
+
+        // Calculate REAL unique buyers and sellers
+        const buyers = new Set<string>();
+        const sellers = new Set<string>();
+        let totalVolumeETH = 0;
+        let salePriceSum = 0;
+        let saleCount = 0;
+
+        eventsInWindow.forEach((event: any) => {
+          sellers.add(event.from.toLowerCase());
+          buyers.add(event.to.toLowerCase());
+
+          // Sum up volumes if price data available
+          if (event.priceETH) {
+            totalVolumeETH += event.priceETH;
+            salePriceSum += event.priceETH;
+            saleCount++;
+          }
+        });
+
+        const avgPrice = saleCount > 0 ? salePriceSum / saleCount : 0;
+        const floorPrice = saleCount > 0 ? Math.min(...eventsInWindow.filter((e: any) => e.priceETH > 0).map((e: any) => e.priceETH)) : 0;
+
+        res.json({
+          period,
+          metrics: {
+            transactionCount: eventsInWindow.length,        // ✅ REAL transaction count
+            volume: parseFloat(totalVolumeETH.toFixed(2)),  // ✅ REAL volume in ETH
+            avgPrice: parseFloat(avgPrice.toFixed(2)),      // ✅ REAL average price
+            floorPrice,
+            uniqueBuyers: buyers.size,                       // ✅ REAL unique buyers
+            uniqueSellers: sellers.size,                     // ✅ REAL unique sellers
+          },
+          _source: 'real_blockchain_data',
+          lastUpdated: new Date(),
+        });
+      } catch (error) {
+        logger.error('Error fetching metrics', error);
+        res.status(500).json({
+          error: 'Failed to fetch metrics',
+          details: error,
+        });
+      }
+    });
+
+    // ===== RECENT TRANSACTIONS ENDPOINT (ENRICHED WITH OPENSEA SALES) =====
+    this.express.get('/api/transactions/recent', async (req, res) => {
+      try {
+        const hours = parseInt(req.query.hours as string) || 24;
+        const limit = parseInt(req.query.limit as string) || 500;
+
+        logger.info(`📋 Fetching recent transactions for last ${hours}h, limit ${limit}`);
+
+        // Check cache first (5 min TTL)
+        const cacheKey = `recent_transactions_${hours}h`;
+        const cached = getCacheService().get<any>(cacheKey);
+        if (cached) {
+          logger.info('✅ Returning cached recent transactions');
+          return res.json(cached);
+        }
+
+        // Strategy: Combine Transfer events with OpenSea sales for accurate prices
+        const [transferEvents, openSeaSales] = await Promise.all([
+          blockchainService.getAllTransferEvents(0).catch(() => []),
+          getOpenSeaProvider().getCollectionSales('0x60E4d786628Fea6478F785A6d7e704777c86a7c6', 300).catch(() => []),
+        ]);
+
+        logger.info(`✅ Got ${transferEvents.length} transfers, ${openSeaSales.length} OpenSea sales`);
+
+        // Filter transfers within time window
+        const now = Math.floor(Date.now() / 1000);
+        const cutoffTime = now - (hours * 3600);
+        const transfersInWindow = transferEvents.filter((e: any) => {
+          const eventTime = typeof e.timestamp === 'number' ? e.timestamp : new Date(e.timestamp).getTime() / 1000;
+          return eventTime >= cutoffTime;
+        });
+
+        // Create a map of OpenSea sales by tokenId for quick lookup
+        const salesByToken = new Map<number, any>();
+        for (const sale of openSeaSales) {
+          const saleTime = new Date(sale.timestamp).getTime() / 1000;
+          if (saleTime >= cutoffTime) {
+            if (!salesByToken.has(sale.tokenId) || new Date(sale.timestamp).getTime() > new Date(salesByToken.get(sale.tokenId).timestamp).getTime()) {
+              salesByToken.set(sale.tokenId, sale);
+            }
+          }
+        }
+
+        logger.info(`✅ ${transfersInWindow.length} transfers in window, ${salesByToken.size} sales matched`);
+
+        // Merge: Enrich transfers with OpenSea sale prices
+        const allTransactions = transfersInWindow
+          .map((event: any) => {
+            const sale = salesByToken.get(event.tokenId);
+            return {
+              tokenId: event.tokenId,
+              from: event.from,
+              to: event.to,
+              timestamp: typeof event.timestamp === 'number' ? event.timestamp : Math.floor(new Date(event.timestamp).getTime() / 1000),
+              txHash: event.transactionHash || event.txHash || undefined,
+              type: sale ? 'sale' : (event.from === '0x0000000000000000000000000000000000000000' ? 'mint' : 'transfer'),
+              priceETH: sale?.priceETH || undefined,
+            };
+          })
+          .sort((a: any, b: any) => b.timestamp - a.timestamp);  // newest first
+
+        const transactions = allTransactions.slice(0, Math.min(limit, 500));
+
+        const response = {
+          count: transactions.length,
+          totalInWindow: allTransactions.length,
+          limit,
+          hours,
+          transactions,
+          _source: 'blockchain_transfers_enriched_with_opensea_sales',
+          lastUpdated: new Date(),
+        };
+
+        // Cache for 5 minutes
+        getCacheService().set(cacheKey, response, 300);
+
+        res.json(response);
+      } catch (error) {
+        logger.error('Error fetching recent transactions', error);
+        res.status(500).json({
+          error: 'Failed to fetch recent transactions',
+          details: (error as any)?.message,
+        });
       }
     });
 
@@ -171,6 +686,148 @@ class App {
       }
     });
 
+    // ====== ENS Resolution Endpoints ======
+    // GET /api/whales/ens/:addressOrName - Resolve ENS for address or reverse lookup
+    this.express.get('/api/whales/ens/:addressOrName', async (req, res) => {
+      try {
+        const { addressOrName } = req.params;
+        const ensService = getENSService();
+
+        let result;
+
+        // Check if it's an Ethereum address
+        if (addressOrName.match(/^0x[a-fA-F0-9]{40}$/i)) {
+          // Forward lookup: address → ENS name
+          logger.info(`📍 ENS forward lookup: ${addressOrName}`);
+          result = await ensService.resolveAddress(addressOrName);
+        } else {
+          // Reverse lookup: ENS name → address
+          logger.info(`📍 ENS reverse lookup: ${addressOrName}`);
+          const address = await ensService.resolveENSName(addressOrName);
+
+          if (!address) {
+            return res.status(404).json({
+              error: 'ENS name not found',
+              name: addressOrName,
+            });
+          }
+
+          // Get full ENS data for resolved address
+          result = await ensService.resolveAddress(address);
+        }
+
+        res.json({
+          status: 'success',
+          ...result,
+        });
+      } catch (error) {
+        logger.error('Error resolving ENS', error);
+        res.status(500).json({
+          error: 'ENS resolution failed',
+          details: (error as any)?.message,
+        });
+      }
+    });
+
+    // GET /api/whales/ens/batch - Batch ENS resolution
+    this.express.post('/api/whales/ens/batch', async (req, res) => {
+      try {
+        const { addresses } = req.body;
+
+        if (!Array.isArray(addresses) || addresses.length === 0) {
+          return res.status(400).json({
+            error: 'Invalid request',
+            message: 'Expected addresses array in body',
+          });
+        }
+
+        const ensService = getENSService();
+        logger.info(`🔍 Batch ENS resolution for ${addresses.length} addresses`);
+
+        const results = await ensService.resolveBatch(addresses);
+
+        res.json({
+          status: 'success',
+          processed: addresses.length,
+          resolved: results.size,
+          data: Array.from(results.values()),
+        });
+      } catch (error) {
+        logger.error('Error in batch ENS resolution', error);
+        res.status(500).json({
+          error: 'Batch ENS resolution failed',
+          details: (error as any)?.message,
+        });
+      }
+    });
+
+    // ===== SMART ALERTS ENDPOINTS =====
+
+    // GET /api/alerts - Get recent alerts
+    this.express.get('/api/alerts', async (req, res) => {
+      try {
+        const limit = parseInt(req.query.limit as string) || 50;
+        const alertMonitor = getAlertMonitorService();
+        const alerts = alertMonitor.getRecentAlerts().slice(0, limit);
+
+        res.json({
+          success: true,
+          count: alerts.length,
+          alerts,
+        });
+      } catch (error) {
+        logger.error('Failed to fetch alerts', error);
+        res.status(500).json({
+          success: false,
+          error: 'Failed to fetch alerts',
+        });
+      }
+    });
+
+    // POST /api/alerts/test-email - Send test email
+    this.express.post('/api/alerts/test-email', async (req, res) => {
+      try {
+        const { email } = req.body;
+
+        if (!email) {
+          return res.status(400).json({
+            success: false,
+            error: 'Email address is required',
+          });
+        }
+
+        const emailService = getEmailService();
+
+        if (!emailService.isEnabled()) {
+          return res.status(503).json({
+            success: false,
+            error: 'Email service not configured. Please set EMAIL_HOST, EMAIL_USER, and EMAIL_PASSWORD in .env',
+          });
+        }
+
+        const sent = await emailService.sendTestEmail(email);
+
+        if (sent) {
+          res.json({
+            success: true,
+            message: `Test email sent to ${email}`,
+          });
+        } else {
+          res.status(500).json({
+            success: false,
+            error: 'Failed to send test email',
+          });
+        }
+      } catch (error) {
+        logger.error('Failed to send test email', error);
+        res.status(500).json({
+          success: false,
+          error: 'Failed to send test email',
+        });
+      }
+    });
+
+    // Use routes from routes.ts for standard endpoints
     this.express.use('/api', routes);
 
     // Serve a simple dashboard page
@@ -368,9 +1025,34 @@ class App {
       // Wait a bit for server to start, then begin monitoring
       await sleep(1000);
       await this.startBlockchainMonitoring();
+
+      // Initialize Smart Alerts system
+      this.initializeAlertSystem();
     } catch (error) {
       logger.error('Failed to start server', error);
       process.exit(1);
+    }
+  }
+
+  /**
+   * Initialize Smart Alerts monitoring system
+   */
+  private initializeAlertSystem(): void {
+    try {
+      const alertMonitor = getAlertMonitorService();
+
+      // Connect alerts to WebSocket broadcasts
+      alertMonitor.onAlert((alert) => {
+        if (this.wsManager) {
+          this.wsManager.broadcastAlert(alert);
+        }
+      });
+
+      // Start monitoring
+      alertMonitor.startMonitoring();
+      logger.info('✅ Smart Alerts system initialized');
+    } catch (error) {
+      logger.error('Failed to initialize Smart Alerts (non-critical)', error);
     }
   }
 
@@ -379,6 +1061,11 @@ class App {
    */
   async shutdown(): Promise<void> {
     logger.info('Shutting down...');
+
+    // Stop alert monitoring
+    try {
+      getAlertMonitorService().stopMonitoring();
+    } catch {}
 
     if (this.wsManager) {
       this.wsManager.close();

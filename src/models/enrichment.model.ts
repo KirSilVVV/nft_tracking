@@ -40,6 +40,12 @@ export interface EnrichedWhale extends Omit<Holder, 'ensName' | 'label'> {
   portfolioValueETH: number | null; // Total value in ETH
   portfolioValueUSD?: number; // Total value in USD
 
+  // ENS Metadata
+  ensAvatar?: string | null;
+  twitter?: string | null;
+  email?: string | null;
+  ensResolvedAt?: number; // Timestamp of ENS resolution
+
   // Metadata
   enrichedAt: Date;
   enrichmentStatus: 'complete' | 'partial' | 'failed';

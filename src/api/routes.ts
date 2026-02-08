@@ -2,12 +2,14 @@ import { Router, Request, Response } from 'express';
 import { getBlockchainService } from '../services/blockchain.service';
 import { getAnalyticsService } from '../services/analytics.service';
 import { getCacheService } from '../services/cache.service';
+import { getOpenSeaProvider } from '../providers/opensea.provider';
 import { logger } from '../utils/logger';
 
 const router = Router();
 const blockchainService = getBlockchainService();
 const analyticsService = getAnalyticsService();
 const cacheService = getCacheService();
+const openSeaProvider = getOpenSeaProvider();
 
 /**
  * GET /api/health
@@ -172,43 +174,7 @@ router.get('/metrics', async (req: Request, res: Response) => {
   }
 });
 
-/**
- * GET /api/whales/top
- * Get top N whales by NFT count
- */
-router.get('/whales/top', async (req: Request, res: Response) => {
-  try {
-    const limit = parseInt(req.query.limit as string) || 50;
-
-    const events = await blockchainService.getAllTransferEvents(0);
-    const allHolders = analyticsService.buildHoldersList(events);
-    const topWhales = allHolders.sort((a, b) => b.count - a.count).slice(0, limit);
-
-    const floorPrice = 5.5; // Mock floor price
-    const totalUniqueHolders = new Set(allHolders.map(h => h.address)).size;
-
-    res.json({
-      whales: topWhales.map((w, idx) => ({
-        rank: idx + 1,
-        address: w.address,
-        ensName: w.ensName || null,
-        nftCount: w.count,
-        nftIds: w.tokenIds || [],
-        percentageOfCollection: ((w.count / 10000) * 100).toFixed(2),
-        floorPrice: floorPrice,
-        estimatedValueETH: (w.count * floorPrice).toFixed(2),
-      })),
-      totalCount: topWhales.length,
-      totalUniqueHolders,
-      floorPrice,
-      cachedAt: null,
-      lastUpdated: new Date(),
-    });
-  } catch (error) {
-    logger.error('Error fetching top whales', error);
-    res.status(500).json({ error: 'Failed to fetch top whales' });
-  }
-});
+// NOTE: /api/whales/top is handled by direct handler in index.ts - do not add duplicate routes here
 
 /**
  * GET /api/whales/search
@@ -230,7 +196,17 @@ router.get('/whales/search', async (req: Request, res: Response) => {
       return res.status(404).json({ error: 'Address not found' });
     }
 
-    const floorPrice = 5.5;
+    const MAYC_TOTAL_SUPPLY = 19423;
+
+    // Get floor price from OpenSea (ACCURATE!)
+    let floorPrice: number | null = null;
+    try {
+      const stats = await openSeaProvider.getCollectionStats('mutant-ape-yacht-club');
+      floorPrice = stats?.floorPrice || null;
+    } catch (error) {
+      logger.warn('Failed to get OpenSea floor price');
+    }
+
     const rank = allHolders.sort((a, b) => b.count - a.count).findIndex(h => h.address.toLowerCase() === address.toLowerCase()) + 1;
 
     res.json({
@@ -239,9 +215,9 @@ router.get('/whales/search', async (req: Request, res: Response) => {
       rank,
       nftCount: whale.count,
       nftIds: whale.tokenIds || [],
-      percentageOfCollection: ((whale.count / 10000) * 100).toFixed(2),
+      percentageOfCollection: ((whale.count / MAYC_TOTAL_SUPPLY) * 100).toFixed(2),
       floorPrice,
-      estimatedValueETH: (whale.count * floorPrice).toFixed(2),
+      estimatedValueETH: floorPrice ? (whale.count * floorPrice).toFixed(2) : null,
       lastUpdated: new Date(),
     });
   } catch (error) {
@@ -252,8 +228,10 @@ router.get('/whales/search', async (req: Request, res: Response) => {
 
 /**
  * GET /api/whales/analytics
- * Get whale analytics and distribution
+ * DEPRECATED: Use the handler in index.ts instead (direct handler takes precedence)
+ * This route is kept for reference but the actual handler is in index.ts
  */
+/* Commented out - using handler from index.ts
 router.get('/whales/analytics', async (req: Request, res: Response) => {
   try {
     const events = await blockchainService.getAllTransferEvents(0);
@@ -263,8 +241,8 @@ router.get('/whales/analytics', async (req: Request, res: Response) => {
       single: allHolders.filter(h => h.count === 1).length,
       small: allHolders.filter(h => h.count >= 2 && h.count <= 5).length,
       medium: allHolders.filter(h => h.count >= 6 && h.count <= 10).length,
-      large: allHolders.filter(h => h.count >= 11 && h.count <= 50).length,
-      whales: allHolders.filter(h => h.count > 50).length,
+      large: allHolders.filter(h => h.count >= 11 && h.count <= 19).length,
+      whales: allHolders.filter(h => h.count >= 20).length,
     };
 
     const topWhales = allHolders.sort((a, b) => b.count - a.count).slice(0, 10);
@@ -280,29 +258,9 @@ router.get('/whales/analytics', async (req: Request, res: Response) => {
     res.status(500).json({ error: 'Failed to fetch analytics' });
   }
 });
+*/
 
-/**
- * GET /api/whales/stats
- * Get quick stats
- */
-router.get('/whales/stats', async (req: Request, res: Response) => {
-  try {
-    const events = await blockchainService.getAllTransferEvents(0);
-    const allHolders = analyticsService.buildHoldersList(events);
-
-    const stats = {
-      totalHolders: allHolders.length,
-      floorPrice: 5.5,
-      totalVolume: (allHolders.length * 5.5).toFixed(2),
-      lastUpdated: new Date(),
-    };
-
-    res.json(stats);
-  } catch (error) {
-    logger.error('Error fetching stats', error);
-    res.status(500).json({ error: 'Failed to fetch stats' });
-  }
-});
+// NOTE: /api/whales/stats is handled by direct handler in index.ts - do not add duplicate routes here
 
 /**
  * POST /api/whales/refresh
@@ -402,91 +360,28 @@ router.get('/whales/top/enriched', async (req: Request, res: Response) => {
       }
     }
 
-    // Fetch and enrich with fallback
-    try {
-      logger.info('Fetching fresh enriched whales...');
-      const events = await blockchainService.getAllTransferEvents(0);
-      const allHolders = analyticsService.buildHoldersList(events);
-      const topWhales = analyticsService.getTopHolders(allHolders, limit);
+    // Fetch real data and enrich
+    logger.info('Fetching real blockchain data for enrichment...');
+    const events = await blockchainService.getAllTransferEvents(0);
+    const allHolders = analyticsService.buildHoldersList(events);
+    const topWhales = analyticsService.getTopHolders(allHolders, limit);
 
-      logger.info(`Enriching ${topWhales.length} whales...`);
-      const enrichedWhales = await enrichmentService.enrichWhales(topWhales);
+    const enrichedWhales = await enrichmentService.enrichWhales(topWhales);
+    cacheService.setEnrichedWhales(enrichedWhales);
 
-      // Cache results
-      cacheService.setEnrichedWhales(enrichedWhales);
-
-      return res.json({
-        whales: enrichedWhales.slice(0, limit),
-        count: enrichedWhales.length,
-        total: enrichedWhales.length,
-        source: 'live',
-        enrichedAt: new Date(),
-        timestamp: new Date(),
-      });
-    } catch (apiError) {
-      logger.warn('Blockchain API error, using mock data fallback', apiError);
-
-      // Generate and cache mock enriched whales
-      const mockWhales = generateMockEnrichedWhales(limit);
-      cacheService.setEnrichedWhales(mockWhales);
-
-      return res.json({
-        whales: mockWhales.slice(0, limit),
-        count: mockWhales.length,
-        total: mockWhales.length,
-        source: 'mock_fallback',
-        enrichedAt: new Date(),
-        timestamp: new Date(),
-        warning: 'Using mock data due to blockchain API limitations',
-      });
-    }
+    return res.json({
+      whales: enrichedWhales.slice(0, limit),
+      count: enrichedWhales.length,
+      total: enrichedWhales.length,
+      source: 'live',
+      enrichedAt: new Date(),
+      timestamp: new Date(),
+    });
   } catch (error) {
     logger.error('Error fetching enriched whales', error);
     res.status(500).json({ error: 'Failed to fetch enriched whales' });
   }
 });
-
-/**
- * Generate mock enriched whales for fallback
- */
-function generateMockEnrichedWhales(count: number = 50) {
-  const whales: any[] = [];
-  for (let i = 0; i < count; i++) {
-    const address = '0x' + i.toString().padStart(40, '0').substring(0, 40);
-    const nftCount = Math.max(10, 150 - i * 2);
-
-    whales.push({
-      address,
-      ensName: i === 0 ? 'whale.eth' : null,
-      tokenIds: Array.from({ length: nftCount }, (_, j) => 1000 * (i + 1) + j),
-      count: nftCount,
-      firstSeen: new Date(2021, Math.floor(Math.random() * 12), Math.floor(Math.random() * 28) + 1),
-      lastActivity: new Date(),
-      percentageOfCollection: (nftCount / 10000 * 100),
-      ethBalance: (Math.random() * 500).toString(),
-      portfolio: {
-        totalCollections: 3,
-        totalNFTs: nftCount,
-        collections: [
-          {
-            contractAddress: '0x60E4d786628Fea6478F785A6d7e704777c86a7c6',
-            name: 'Mutant Ape Yacht Club',
-            symbol: 'MAYC',
-            tokenType: 'ERC721',
-            count: nftCount,
-            floorPrice: 5.5,
-            estimatedValueETH: nftCount * 5.5,
-            image: null,
-          },
-        ],
-      },
-      portfolioValueETH: nftCount * 5.5,
-      enrichedAt: new Date(),
-      enrichmentStatus: 'complete' as const,
-    });
-  }
-  return whales;
-}
 
 /**
  * GET /api/whales/:address/enriched
@@ -567,6 +462,339 @@ router.get('/whales/portfolio/:address', async (req: Request, res: Response) => 
   } catch (error) {
     logger.error('Error fetching portfolio', error);
     res.status(500).json({ error: 'Failed to fetch portfolio' });
+  }
+});
+
+/**
+ * ===== COLLECTION INSIGHTS ENDPOINTS =====
+ */
+
+/**
+ * GET /api/traits/analysis
+ * Get trait rarity analysis for MAYC collection
+ */
+router.get('/traits/analysis', async (req: Request, res: Response) => {
+  try {
+    const { getTraitAnalyzerService } = await import('../services/trait-analyzer.service');
+    const traitAnalyzer = getTraitAnalyzerService();
+
+    logger.info('GET /api/traits/analysis');
+
+    const analysis = await traitAnalyzer.analyzeTraits();
+
+    res.json({
+      success: true,
+      data: analysis,
+      timestamp: new Date(),
+    });
+  } catch (error) {
+    logger.error('Error fetching trait analysis', error);
+    res.status(500).json({ error: 'Failed to fetch trait analysis' });
+  }
+});
+
+/**
+ * GET /api/metrics/historical?days=7
+ * Get daily breakdown of activity over specified period
+ */
+router.get('/metrics/historical', async (req: Request, res: Response) => {
+  try {
+    const days = parseInt(req.query.days as string) || 7;
+    const maxDays = 30; // Limit to 30 days max
+
+    if (days > maxDays) {
+      return res.status(400).json({ error: `Maximum ${maxDays} days allowed` });
+    }
+
+    logger.info(`GET /api/metrics/historical?days=${days}`);
+
+    // Check cache
+    const cacheKey = `historical_metrics_${days}d`;
+    const cached = cacheService.get(cacheKey);
+
+    if (cached) {
+      logger.info('Returning cached historical metrics');
+      return res.json({
+        success: true,
+        data: cached,
+        source: 'cache',
+        timestamp: new Date(),
+      });
+    }
+
+    // Fetch all transfer events
+    const allEvents = await blockchainService.getAllTransferEvents(0);
+
+    // Calculate cutoff timestamp
+    const now = Date.now();
+    const cutoffTime = now - days * 24 * 60 * 60 * 1000;
+
+    // Filter events within time window
+    const recentEvents = allEvents.filter((e: any) => {
+      const eventTime = e.timestamp ? new Date(e.timestamp).getTime() : 0;
+      return eventTime >= cutoffTime;
+    });
+
+    // Group by day
+    const dailyMetrics: any[] = [];
+    for (let i = 0; i < days; i++) {
+      const dayStart = now - (i + 1) * 24 * 60 * 60 * 1000;
+      const dayEnd = now - i * 24 * 60 * 60 * 1000;
+
+      const dayEvents = recentEvents.filter((e: any) => {
+        const eventTime = e.timestamp ? new Date(e.timestamp).getTime() : 0;
+        return eventTime >= dayStart && eventTime < dayEnd;
+      });
+
+      const uniqueBuyers = new Set(dayEvents.map((e: any) => e.to)).size;
+      const uniqueSellers = new Set(dayEvents.map((e: any) => e.from)).size;
+      const totalVolume = dayEvents.reduce((sum: number, e: any) => sum + (e.priceETH || 0), 0);
+
+      // Calculate floor price (minimum sale price for the day)
+      const salesWithPrice = dayEvents.filter((e: any) => e.priceETH && e.priceETH > 0);
+      const minPrice = salesWithPrice.length > 0
+        ? Math.min(...salesWithPrice.map((e: any) => e.priceETH))
+        : null;
+
+      dailyMetrics.unshift({
+        date: new Date(dayStart).toISOString().split('T')[0],
+        transfers: dayEvents.length,
+        uniqueBuyers,
+        uniqueSellers,
+        volumeETH: parseFloat(totalVolume.toFixed(4)),
+        floorPriceETH: minPrice ? parseFloat(minPrice.toFixed(4)) : null,
+      });
+    }
+
+    // Calculate week-over-week comparison
+    const thisWeekTotal = dailyMetrics.slice(-7).reduce((sum, d) => sum + d.transfers, 0);
+    const lastWeekTotal = dailyMetrics.slice(0, 7).reduce((sum, d) => sum + d.transfers, 0);
+    const weekOverWeekChange = lastWeekTotal > 0
+      ? ((thisWeekTotal - lastWeekTotal) / lastWeekTotal * 100).toFixed(1)
+      : '0.0';
+
+    const result = {
+      period: `${days}d`,
+      dailyBreakdown: dailyMetrics,
+      summary: {
+        totalTransfers: recentEvents.length,
+        avgTransfersPerDay: (recentEvents.length / days).toFixed(1),
+        weekOverWeekChange: parseFloat(weekOverWeekChange),
+      },
+    };
+
+    // Cache for 30 minutes
+    cacheService.set(cacheKey, result, 1800);
+
+    res.json({
+      success: true,
+      data: result,
+      source: 'live',
+      timestamp: new Date(),
+    });
+  } catch (error) {
+    logger.error('Error fetching historical metrics', error);
+    res.status(500).json({ error: 'Failed to fetch historical metrics' });
+  }
+});
+
+/**
+ * ===== FLIP CALCULATOR ENDPOINTS =====
+ */
+
+/**
+ * GET /api/calculator/estimate?buyPrice=1.5&sellPrice=2.0
+ * Calculate profit estimate for a potential flip
+ */
+router.get('/calculator/estimate', async (req: Request, res: Response) => {
+  try {
+    const buyPrice = parseFloat(req.query.buyPrice as string);
+    const sellPrice = parseFloat(req.query.sellPrice as string);
+
+    if (isNaN(buyPrice) || isNaN(sellPrice)) {
+      return res.status(400).json({ error: 'Invalid buyPrice or sellPrice' });
+    }
+
+    if (buyPrice <= 0 || sellPrice <= 0) {
+      return res.status(400).json({ error: 'Prices must be greater than 0' });
+    }
+
+    logger.info(`GET /api/calculator/estimate - buy=${buyPrice}, sell=${sellPrice}`);
+
+    const { getFlipCalculatorService } = await import('../services/flip-calculator.service');
+    const calculator = getFlipCalculatorService();
+
+    const { estimate, estimateUSD } = calculator.calculateEstimateUSD(buyPrice, sellPrice);
+
+    res.json({
+      success: true,
+      data: {
+        estimate,
+        estimateUSD,
+      },
+      timestamp: new Date(),
+    });
+  } catch (error) {
+    logger.error('Error calculating flip estimate', error);
+    res.status(500).json({ error: 'Failed to calculate estimate' });
+  }
+});
+
+/**
+ * GET /api/calculator/historical-flips?limit=10&sortBy=profit
+ * Get historical profitable flips from transfer events
+ */
+router.get('/calculator/historical-flips', async (req: Request, res: Response) => {
+  try {
+    const limit = parseInt(req.query.limit as string) || 10;
+    const sortBy = (req.query.sortBy as string) || 'profit'; // profit or roi
+
+    logger.info(`GET /api/calculator/historical-flips - limit=${limit}, sortBy=${sortBy}`);
+
+    // Check cache
+    const cacheKey = `historical_flips_${sortBy}_${limit}`;
+    const cached = cacheService.get(cacheKey);
+
+    if (cached) {
+      logger.info('Returning cached historical flips');
+      return res.json({
+        success: true,
+        data: cached,
+        source: 'cache',
+        timestamp: new Date(),
+      });
+    }
+
+    // Fetch historical flips from OpenSea (real marketplace sales)
+    const { getFlipCalculatorService } = await import('../services/flip-calculator.service');
+    const calculator = getFlipCalculatorService();
+
+    const contractAddress = process.env.NFT_CONTRACT_ADDRESS || '0x60E4d786628Fea6478F785A6d7e704777c86a7c6';
+
+    // Analyze flips from OpenSea sales data
+    const { flips, statistics } = await calculator.analyzeHistoricalFlipsFromOpenSea(contractAddress);
+
+    // Get top flips
+    const topFlips = sortBy === 'roi'
+      ? calculator.getTopROIFlips(flips, limit)
+      : calculator.getTopFlips(flips, limit);
+
+    const result = {
+      flips: topFlips,
+      statistics,
+      totalFlipsFound: flips.length,
+    };
+
+    // Cache for 1 hour
+    cacheService.set(cacheKey, result, 3600);
+
+    res.json({
+      success: true,
+      data: result,
+      source: 'live',
+      timestamp: new Date(),
+    });
+  } catch (error) {
+    logger.error('Error fetching historical flips', error);
+    res.status(500).json({ error: 'Failed to fetch historical flips' });
+  }
+});
+
+/**
+ * GET /api/calculator/statistics
+ * Get overall flip statistics
+ */
+router.get('/calculator/statistics', async (req: Request, res: Response) => {
+  try {
+    logger.info('GET /api/calculator/statistics');
+
+    // Check cache
+    const cacheKey = 'flip_statistics';
+    const cached = cacheService.get(cacheKey);
+
+    if (cached) {
+      logger.info('Returning cached flip statistics');
+      return res.json({
+        success: true,
+        data: cached,
+        source: 'cache',
+        timestamp: new Date(),
+      });
+    }
+
+    // Fetch flip statistics from OpenSea (real marketplace sales)
+    const { getFlipCalculatorService } = await import('../services/flip-calculator.service');
+    const calculator = getFlipCalculatorService();
+
+    const contractAddress = process.env.NFT_CONTRACT_ADDRESS || '0x60E4d786628Fea6478F785A6d7e704777c86a7c6';
+
+    // Analyze flips from OpenSea sales data
+    const { statistics } = await calculator.analyzeHistoricalFlipsFromOpenSea(contractAddress);
+
+    // Cache for 1 hour
+    cacheService.set(cacheKey, statistics, 3600);
+
+    res.json({
+      success: true,
+      data: statistics,
+      source: 'live',
+      timestamp: new Date(),
+    });
+  } catch (error) {
+    logger.error('Error fetching flip statistics', error);
+    res.status(500).json({ error: 'Failed to fetch statistics' });
+  }
+});
+
+/**
+ * GET /api/collection/stats
+ * Get OpenSea collection statistics (floor price, volume, sales, etc.)
+ */
+router.get('/collection/stats', async (req: Request, res: Response) => {
+  try {
+    const collectionSlug = (req.query.slug as string) || 'mutant-ape-yacht-club';
+
+    logger.info(`GET /api/collection/stats?slug=${collectionSlug}`);
+
+    // Check cache first
+    const cached = cacheService.getCollectionStats(collectionSlug);
+    if (cached) {
+      logger.debug('Returning cached collection stats');
+      return res.json({
+        success: true,
+        data: cached,
+        source: 'cache',
+        timestamp: new Date(),
+      });
+    }
+
+    // Fetch from OpenSea
+    const stats = await openSeaProvider.getCollectionStats(collectionSlug);
+
+    if (!stats) {
+      logger.warn('Failed to fetch collection stats from OpenSea');
+      return res.status(503).json({
+        success: false,
+        error: 'OpenSea API unavailable',
+        message: 'Unable to fetch collection statistics. Please try again later.',
+      });
+    }
+
+    // Cache the result
+    cacheService.setCollectionStats(collectionSlug, stats);
+
+    res.json({
+      success: true,
+      data: stats,
+      source: 'opensea',
+      timestamp: new Date(),
+    });
+  } catch (error) {
+    logger.error('Error fetching collection stats', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch collection stats',
+    });
   }
 });
 

@@ -188,6 +188,20 @@ export class WebSocketManager {
   }
 
   /**
+   * Broadcast smart alert to all connected clients
+   */
+  broadcastAlert(alert: any): void {
+    const message = JSON.stringify({
+      type: 'alert',
+      data: alert,
+      timestamp: new Date(),
+    });
+
+    this.broadcast(message);
+    logger.info(`🚨 Alert broadcast to ${this.clients.size} clients: ${alert.title}`);
+  }
+
+  /**
    * Send message to specific client
    */
   sendToClient(ws: WebSocket, message: any): void {

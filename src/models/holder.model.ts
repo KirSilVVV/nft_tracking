@@ -7,6 +7,10 @@ export interface Holder {
   firstSeen: Date;
   lastActivity: Date;
   percentageOfCollection?: number;
+  // ENS metadata (populated by lazy loading)
+  ensAvatar?: string | null;
+  twitter?: string | null;
+  email?: string | null;
 }
 
 export interface HolderStats {

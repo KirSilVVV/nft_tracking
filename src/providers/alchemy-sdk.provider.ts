@@ -128,6 +128,46 @@ export class AlchemySDKProvider {
   }
 
   /**
+   * Get metadata for a specific NFT by contract address and token ID
+   */
+  async getNftMetadata(contractAddress: string, tokenId: string): Promise<{
+    name: string;
+    description: string | null;
+    image: string | null;
+    traits: { trait_type: string; value: string }[];
+    tokenType: string;
+  }> {
+    try {
+      logger.info(`Fetching NFT metadata for ${contractAddress} #${tokenId}`);
+
+      const response = await this.alchemy.nft.getNftMetadata(contractAddress, tokenId);
+
+      const traits = (response.raw?.metadata?.attributes || []).map((attr: any) => ({
+        trait_type: attr.trait_type || attr.traitType || 'Unknown',
+        value: String(attr.value || ''),
+      }));
+
+      // Get image from various possible fields
+      const image = response.image?.cachedUrl
+        || response.image?.pngUrl
+        || response.image?.thumbnailUrl
+        || response.raw?.metadata?.image
+        || null;
+
+      return {
+        name: response.name || `#${tokenId}`,
+        description: response.description || null,
+        image,
+        traits,
+        tokenType: response.contract?.tokenType || 'ERC721',
+      };
+    } catch (error) {
+      logger.error(`Failed to get NFT metadata for ${contractAddress} #${tokenId}`, error);
+      throw error;
+    }
+  }
+
+  /**
    * Batch processing helper - get NFTs for multiple owners
    */
   async batchGetNFTsForOwners(

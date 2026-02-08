@@ -16,6 +16,7 @@ export class CacheService {
   private readonly PORTFOLIO_TTL = 3600; // 1 hour
   private readonly FLOOR_PRICE_TTL = 1800; // 30 minutes
   private readonly ENRICHED_WHALES_TTL = 3600; // 1 hour
+  private readonly NFT_METADATA_TTL = 3600; // 1 hour
 
   constructor() {
     this.cache = new NodeCache({
@@ -237,6 +238,19 @@ export class CacheService {
   }
 
   /**
+   * ===== NFT METADATA CACHING =====
+   */
+
+  getNftMetadata(tokenId: string): any | undefined {
+    return this.cache.get(`nft_metadata_${tokenId}`);
+  }
+
+  setNftMetadata(tokenId: string, metadata: any): void {
+    this.cache.set(`nft_metadata_${tokenId}`, metadata, this.NFT_METADATA_TTL);
+    logger.debug(`Cached NFT metadata for token #${tokenId}`);
+  }
+
+  /**
    * Clear all cache
    */
   clear(): void {
@@ -250,6 +264,67 @@ export class CacheService {
   clearKey(key: string): void {
     this.cache.del(key);
     logger.debug(`Cache key cleared: ${key}`);
+  }
+
+  /**
+   * ===== GENERIC CACHE OPERATIONS =====
+   */
+
+  /**
+   * Generic get with type safety
+   */
+  get<T = any>(key: string): T | null {
+    const value = this.cache.get<T>(key);
+    return value !== undefined ? value : null;
+  }
+
+  /**
+   * Generic set with custom TTL
+   */
+  set<T = any>(key: string, value: T, ttl?: number): void {
+    if (ttl) {
+      this.cache.set(key, value, ttl);
+    } else {
+      this.cache.set(key, value);
+    }
+    logger.debug(`Cache SET: ${key}`);
+  }
+
+  /**
+   * Generic delete
+   */
+  delete(key: string): void {
+    this.cache.del(key);
+    logger.debug(`Cache DELETE: ${key}`);
+  }
+
+  /**
+   * ===== OPENSEA COLLECTION STATS CACHING =====
+   */
+
+  private readonly COLLECTION_STATS_TTL = 600; // 10 minutes
+
+  getCollectionStats(collectionSlug: string): any | null {
+    return this.cache.get(`collection_stats_${collectionSlug}`) || null;
+  }
+
+  setCollectionStats(collectionSlug: string, stats: any): void {
+    this.cache.set(`collection_stats_${collectionSlug}`, stats, this.COLLECTION_STATS_TTL);
+    logger.debug(`Cached collection stats for ${collectionSlug}`);
+  }
+
+  /**
+   * Check if key exists
+   */
+  has(key: string): boolean {
+    return this.cache.has(key);
+  }
+
+  /**
+   * Get all keys
+   */
+  keys(): string[] {
+    return this.cache.keys();
   }
 
   /**
