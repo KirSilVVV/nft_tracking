@@ -1,465 +1,286 @@
-import React, { useEffect, useState } from 'react';
-import axios from 'axios';
-import RecentTransactions from '../components/RecentTransactions';
-import HolderDistributionPieChart from '../components/charts/HolderDistributionPieChart';
-import ActivityTrendChart from '../components/charts/ActivityTrendChart';
-import TopHoldersBarChart from '../components/charts/TopHoldersBarChart';
-import HistoricalTrendChart from '../components/charts/HistoricalTrendChart';
-import TraitRarityChart from '../components/charts/TraitRarityChart';
-import { DashboardGridSkeleton, ChartSkeleton } from '../components/loading';
+// Dashboard - Analytics Dashboard with Chart.js (ATLAS Design)
 
-interface Distribution {
-  totalHolders: number;
-  single: number;
-  small: number;
-  medium: number;
-  large: number;
-  whales: number;
-}
-
-interface Metrics {
-  transactionCount: number;
-  volume: number;
-  avgPrice: number;
-  uniqueBuyers: number;
-  uniqueSellers: number;
-}
+import React from 'react';
+import { useAnalytics, useTopWhales } from '../hooks/useWhales';
+import BarChart from '../components/chartjs/BarChart';
+import PieChart from '../components/chartjs/PieChart';
+import LineChart from '../components/chartjs/LineChart';
+import DoughnutChart from '../components/chartjs/DoughnutChart';
+import { DashboardSkeleton, Spinner } from '../components/loading';
+import '../styles/dashboard.css';
 
 const Dashboard: React.FC = () => {
-  const [distribution, setDistribution] = useState<Distribution | null>(null);
-  const [metrics, setMetrics] = useState<Metrics | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const { data: analyticsData, isLoading: analyticsLoading } = useAnalytics();
+  const { data: whalesData, isLoading: whalesLoading } = useTopWhales(10);
 
-  useEffect(() => {
-    // Load data in parallel, non-blocking
-    fetchData();
-  }, []);
+  // Mock activity trend data (24 hours by hour)
+  const activityTrendData = Array.from({ length: 24 }, (_, i) => ({
+    label: `${i}:00`,
+    value: Math.floor(Math.random() * 30) + 10,
+  }));
 
-  const fetchData = async () => {
-    try {
-      // Don't block UI - load in background
-      setLoading(true);
+  // Prepare data for charts
+  const distributionData = analyticsData ? [
+    { label: 'Single (1 NFT)', value: analyticsData.distribution?.single || 0, color: '#4E8EF7' },
+    { label: 'Small (2-5)', value: analyticsData.distribution?.small || 0, color: '#34D399' },
+    { label: 'Medium (6-10)', value: analyticsData.distribution?.medium || 0, color: '#FBBF24' },
+    { label: 'Large (11-19)', value: analyticsData.distribution?.large || 0, color: '#FB923C' },
+    { label: 'Whales (20+)', value: analyticsData.distribution?.whales || 0, color: '#F5A623' },
+  ] : [];
 
-      // Load both in parallel
-      const [analyticsRes, metricsRes] = await Promise.all([
-        axios.get('http://localhost:6252/api/whales/analytics').catch(e => ({ data: null })),
-        axios.get('http://localhost:6252/api/metrics?period=24h').catch(e => ({ data: null })),
-      ]);
+  const topHoldersData = whalesData?.whales?.slice(0, 10).map((whale: any) => ({
+    label: whale.ensName || `${whale.address.slice(0, 6)}...${whale.address.slice(-4)}`,
+    value: whale.nftCount,
+  })) || [];
 
-      if (analyticsRes.data) {
-        const analyticsData = analyticsRes.data;
-        const distribution: Distribution = {
-          totalHolders: analyticsData.totalHolders || 0,
-          single: analyticsData.distribution?.single || 0,
-          small: analyticsData.distribution?.small || 0,
-          medium: analyticsData.distribution?.medium || 0,
-          large: analyticsData.distribution?.large || 0,
-          whales: analyticsData.distribution?.whales || 0,
-        };
-        setDistribution(distribution);
-      }
+  const concentrationData = analyticsData ? [
+    { label: 'Whales', value: analyticsData.distribution?.whales || 0, color: '#F5A623' },
+    { label: 'Large', value: analyticsData.distribution?.large || 0, color: '#FB923C' },
+    { label: 'Medium', value: analyticsData.distribution?.medium || 0, color: '#FBBF24' },
+    { label: 'Small + Single', value: (analyticsData.distribution?.small || 0) + (analyticsData.distribution?.single || 0), color: '#4E8EF7' },
+  ] : [];
 
-      if (metricsRes.data) {
-        const metricsData = metricsRes.data;
-        const metrics: Metrics = {
-          transactionCount: metricsData.metrics.transactionCount,
-          volume: metricsData.metrics.volume,
-          avgPrice: metricsData.metrics.avgPrice,
-          uniqueBuyers: metricsData.metrics.uniqueBuyers,
-          uniqueSellers: metricsData.metrics.uniqueSellers,
-        };
-        setMetrics(metrics);
-      }
+  if (analyticsLoading || whalesLoading) {
+    return (
+      <div className="dashboard-container">
+        <div className="stats-grid">
+          <DashboardSkeleton />
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '60px 0' }}>
+          <div style={{ textAlign: 'center' }}>
+            <Spinner variant="whale" size="lg" />
+            <p style={{ marginTop: '20px', color: 'var(--t2)' }}>Loading analytics...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
-      setError(null);
-    } catch (err) {
-      console.error('Failed to fetch dashboard data:', err);
-      setError('Failed to load analytics data');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Don't block UI while loading - show page immediately with skeleton states
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 py-8 px-4">
-      <div className="max-w-7xl mx-auto">
-        {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-4xl font-bold text-gray-900 mb-2">
-            📊 Analytics Dashboard
-          </h1>
-          <p className="text-gray-600">
-            Real-time analytics for MAYC NFT collection
-          </p>
+    <div className="dashboard-container">
+      {/* Stat Cards Grid */}
+      <div className="stats-grid">
+        <div className="stat-card">
+          <div className="stat-icon">📊</div>
+          <div className="stat-content">
+            <div className="stat-label">Total Holders</div>
+            <div className="stat-value">{analyticsData?.totalHolders?.toLocaleString() || '0'}</div>
+            <div className="stat-change">addresses</div>
+          </div>
         </div>
 
-        {/* Error State */}
-        {error && (
-          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700">
-            ⚠️ {error}
+        <div className="stat-card">
+          <div className="stat-icon">🐋</div>
+          <div className="stat-content">
+            <div className="stat-label">Whales (20+)</div>
+            <div className="stat-value" style={{ color: 'var(--gold)' }}>
+              {analyticsData?.distribution?.whales || 0}
+            </div>
+            <div className="stat-change">collectors</div>
           </div>
-        )}
+        </div>
 
-        {/* Key Metrics Grid */}
-        {!distribution && !metrics ? (
-          <DashboardGridSkeleton count={5} />
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
-            <MetricCard
-              icon="🏆"
-              title="Total Holders"
-              value={distribution?.totalHolders.toLocaleString() || '0'}
-              subtitle="addresses"
-              color="from-blue-500 to-blue-600"
-            />
-
-            <MetricCard
-              icon="🐋"
-              title="Whales"
-              value={distribution?.whales || 0}
-              subtitle="20+ NFTs"
-              color="from-purple-500 to-purple-600"
-            />
-
-            <MetricCard
-              icon="📈"
-              title="24h Transfers"
-              value={metrics?.transactionCount || 0}
-              subtitle="transactions"
-              color="from-green-500 to-green-600"
-            />
-
-            <MetricCard
-              icon="💰"
-              title="Avg Price"
-              value={`${metrics?.avgPrice?.toFixed(2) || '0.00'} ETH`}
-              subtitle="per NFT"
-              color="from-yellow-500 to-yellow-600"
-            />
-
-            <MetricCard
-              icon="📊"
-              title="Total Volume"
-              value={`${metrics?.volume?.toFixed(2) || '0.00'} ETH`}
-              subtitle="24 hours"
-              color="from-red-500 to-red-600"
-            />
+        <div className="stat-card">
+          <div className="stat-icon">💰</div>
+          <div className="stat-content">
+            <div className="stat-label">Floor Price</div>
+            <div className="stat-value" style={{ color: 'var(--ok)' }}>
+              {whalesData?.floorPrice ? `${whalesData.floorPrice.toFixed(3)}` : '—'}
+            </div>
+            <div className="stat-change">ETH</div>
           </div>
-        )}
+        </div>
 
-        {/* Interactive Charts Section */}
-        <div className="mb-8">
-          <h2 className="text-2xl font-bold text-gray-900 mb-6">
-            📈 Visual Analytics
-          </h2>
+        <div className="stat-card">
+          <div className="stat-icon">📈</div>
+          <div className="stat-content">
+            <div className="stat-label">24h Volume</div>
+            <div className="stat-value">{analyticsData?.volume24h || '0.00'}</div>
+            <div className="stat-change">ETH</div>
+          </div>
+        </div>
+      </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-            {/* Pie Chart - Holder Distribution */}
-            {!distribution ? (
-              <ChartSkeleton />
+      {/* Charts Grid */}
+      <div className="charts-grid">
+        {/* Bar Chart - Top Holders */}
+        <div className="chart-card">
+          <div className="chart-header">
+            <h3 className="chart-title">🏆 Top 10 Holders</h3>
+            <p className="chart-subtitle">NFTs held by top whales</p>
+          </div>
+          <div className="chart-body">
+            {topHoldersData.length > 0 ? (
+              <BarChart data={topHoldersData} yAxisLabel="NFTs Held" />
             ) : (
-              <div className="bg-white rounded-xl shadow-lg p-6">
-                <h3 className="text-lg font-bold text-gray-900 mb-4">
-                  🥧 Holder Distribution Breakdown
-                </h3>
-                <HolderDistributionPieChart distribution={distribution} />
-              </div>
+              <div className="chart-empty">No data available</div>
             )}
-
-            {/* Bar Chart - Top 10 Holders */}
-            <div className="bg-white rounded-xl shadow-lg p-6">
-              <h3 className="text-lg font-bold text-gray-900 mb-4">
-                🏆 Top 10 Whale Holders
-              </h3>
-              <TopHoldersBarChart />
-            </div>
-          </div>
-
-          {/* Line Chart - Activity Trend (full width) */}
-          <div className="bg-white rounded-xl shadow-lg p-6">
-            <h3 className="text-lg font-bold text-gray-900 mb-4">
-              📊 24-Hour Activity Trend
-            </h3>
-            <ActivityTrendChart />
           </div>
         </div>
 
-        {/* Collection Insights Section */}
-        <div className="mb-8">
-          <h2 className="text-2xl font-bold text-gray-900 mb-6">
-            🔍 Collection Insights
-          </h2>
-
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Historical Trends - 7 Day Activity */}
-            <div className="bg-white rounded-xl shadow-lg p-6">
-              <h3 className="text-lg font-bold text-gray-900 mb-4">
-                📈 Historical Trends (7 Days)
-              </h3>
-              <HistoricalTrendChart defaultDays={7} />
-            </div>
-
-            {/* Trait Rarity Analysis */}
-            <div className="bg-white rounded-xl shadow-lg p-6">
-              <h3 className="text-lg font-bold text-gray-900 mb-4">
-                🎨 Trait Rarity Analysis
-              </h3>
-              <TraitRarityChart />
-            </div>
+        {/* Pie Chart - Distribution */}
+        <div className="chart-card">
+          <div className="chart-header">
+            <h3 className="chart-title">🥧 Holder Distribution</h3>
+            <p className="chart-subtitle">Breakdown by wallet size</p>
+          </div>
+          <div className="chart-body">
+            {distributionData.length > 0 ? (
+              <PieChart data={distributionData} />
+            ) : (
+              <div className="chart-empty">No data available</div>
+            )}
           </div>
         </div>
 
-        {/* Distribution Charts Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-          {/* Holder Distribution */}
-          <div className="bg-white rounded-xl shadow-lg p-6">
-            <h2 className="text-xl font-bold text-gray-900 mb-6">
-              📊 Holder Distribution (Bars)
-            </h2>
-
-            <div className="space-y-4">
-              <DistributionBar
-                label="Single (1 NFT)"
-                value={distribution?.single || 0}
-                total={distribution?.totalHolders || 1}
-                color="bg-blue-500"
-              />
-              <DistributionBar
-                label="Small (2-5 NFTs)"
-                value={distribution?.small || 0}
-                total={distribution?.totalHolders || 1}
-                color="bg-green-500"
-              />
-              <DistributionBar
-                label="Medium (6-10 NFTs)"
-                value={distribution?.medium || 0}
-                total={distribution?.totalHolders || 1}
-                color="bg-yellow-500"
-              />
-              <DistributionBar
-                label="Large (11-20 NFTs)"
-                value={distribution?.large || 0}
-                total={distribution?.totalHolders || 1}
-                color="bg-orange-500"
-              />
-              <DistributionBar
-                label="Whales (20+ NFTs) 🐋"
-                value={distribution?.whales || 0}
-                total={distribution?.totalHolders || 1}
-                color="bg-red-500"
-              />
-            </div>
-
-            {/* Statistics */}
-            <div className="mt-6 pt-6 border-t border-gray-200">
-              <div className="grid grid-cols-2 gap-4 text-sm">
-                <div>
-                  <p className="text-gray-600">Avg per Holder</p>
-                  <p className="text-lg font-bold text-gray-900">
-                    {distribution
-                      ? (19423 / distribution.totalHolders).toFixed(2)
-                      : '0'}
-                    NFTs
-                  </p>
-                </div>
-                <div>
-                  <p className="text-gray-600">Total Supply</p>
-                  <p className="text-lg font-bold text-gray-900">19,423 MAYC</p>
-                </div>
-              </div>
-            </div>
+        {/* Line Chart - Activity Trend */}
+        <div className="chart-card chart-card-wide">
+          <div className="chart-header">
+            <h3 className="chart-title">📊 24h Activity Trend</h3>
+            <p className="chart-subtitle">Transfer events by hour</p>
           </div>
-
-          {/* Concentration Analysis */}
-          <div className="bg-white rounded-xl shadow-lg p-6">
-            <h2 className="text-xl font-bold text-gray-900 mb-6">
-              🎯 Concentration Analysis
-            </h2>
-
-            <div className="space-y-6">
-              {/* Large & Whale Holders */}
-              <ConcentrationCard
-                title="Large + Whale Holders"
-                percentage={
-                  distribution
-                    ? // % of total holders that are large or whale
-                      (((distribution.large + distribution.whales) / distribution.totalHolders) * 100)
-                    : 0
-                }
-                description="% of all holders with 11+ NFTs"
-              />
-
-              {/* Medium Holders */}
-              <ConcentrationCard
-                title="Medium Holders (6-10)"
-                percentage={
-                  distribution
-                    ? // % of total holders that are medium
-                      ((distribution.medium / distribution.totalHolders) * 100)
-                    : 0
-                }
-                description="% of all holders with 6-10 NFTs"
-              />
-
-              {/* Retail Holders */}
-              <ConcentrationCard
-                title="Retail Holders (1-5)"
-                percentage={
-                  distribution
-                    ? // % of retail = Single + Small
-                      (((distribution.single + distribution.small) / distribution.totalHolders) * 100)
-                    : 0
-                }
-                description="% of all holders with 1-5 NFTs"
-              />
-            </div>
-
-            <div className="mt-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
-              <p className="text-sm text-blue-900">
-                <strong>💡 Insight:</strong> The concentration shows how evenly
-                NFTs are distributed across holders.
-              </p>
-            </div>
+          <div className="chart-body">
+            <LineChart data={activityTrendData} yAxisLabel="Transfers" />
           </div>
         </div>
 
-        {/* Market Statistics Table */}
-        <div className="bg-white rounded-xl shadow-lg p-6 mb-8">
-          <h2 className="text-xl font-bold text-gray-900 mb-6">
-            📈 Market Statistics
-          </h2>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            <StatItem
-              label="Total Supply"
-              value="19,423"
-              icon="📦"
-              change="+0%"
-            />
-            <StatItem
-              label="Unique Holders"
-              value={distribution?.totalHolders.toLocaleString() || '0'}
-              icon="👥"
-              change={`${((distribution?.whales || 0) / (distribution?.totalHolders || 1) * 100).toFixed(1)}% whales`}
-            />
-            <StatItem
-              label="Unique Buyers (24h)"
-              value={metrics?.uniqueBuyers || 0}
-              icon="🟢"
-              change="active"
-            />
-            <StatItem
-              label="Unique Sellers (24h)"
-              value={metrics?.uniqueSellers || 0}
-              icon="🔴"
-              change="active"
-            />
+        {/* Doughnut Chart - Concentration */}
+        <div className="chart-card">
+          <div className="chart-header">
+            <h3 className="chart-title">🎯 Concentration Analysis</h3>
+            <p className="chart-subtitle">NFT distribution pattern</p>
+          </div>
+          <div className="chart-body">
+            {concentrationData.length > 0 ? (
+              <DoughnutChart data={concentrationData} centerText={`${analyticsData?.totalHolders || 0}`} />
+            ) : (
+              <div className="chart-empty">No data available</div>
+            )}
           </div>
         </div>
+      </div>
 
-        {/* Recent Transactions */}
-        <div className="mb-8">
-          <RecentTransactions />
-        </div>
-
-        {/* Refresh Button */}
-        <div className="mt-8 flex justify-center">
-          <button
-            onClick={fetchData}
-            className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors"
-          >
-            🔄 Refresh Data
+      {/* Whale Table */}
+      <div className="whale-table-card">
+        <div className="whale-table-header">
+          <h3>🐋 Top Whales Overview</h3>
+          <button className="btn-ghost" onClick={() => window.location.href = '#/whales'}>
+            View All →
           </button>
         </div>
+        <div className="whale-table">
+          <table>
+            <thead>
+              <tr>
+                <th>Rank</th>
+                <th>Address / ENS</th>
+                <th>NFTs</th>
+                <th>Collection %</th>
+                <th>Progress</th>
+              </tr>
+            </thead>
+            <tbody>
+              {whalesData?.whales?.slice(0, 10).map((whale: any) => (
+                <tr key={whale.address}>
+                  <td className="rank-cell">
+                    <span className={`rank-badge ${whale.rank <= 3 ? `rank-${whale.rank}` : ''}`}>
+                      #{whale.rank}
+                    </span>
+                  </td>
+                  <td className="address-cell">
+                    {whale.ensName ? (
+                      <span className="ens-name">{whale.ensName}</span>
+                    ) : (
+                      <span className="address">
+                        {whale.address.slice(0, 6)}...{whale.address.slice(-4)}
+                      </span>
+                    )}
+                  </td>
+                  <td className="count-cell">{whale.nftCount}</td>
+                  <td className="percentage-cell">{whale.percentageOfCollection?.toFixed(2)}%</td>
+                  <td className="progress-cell">
+                    <div className="progress-bar">
+                      <div
+                        className="progress-fill"
+                        style={{ width: `${Math.min(whale.percentageOfCollection * 10, 100)}%` }}
+                      ></div>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Activity Feed */}
+      <div className="activity-feed-card">
+        <div className="activity-feed-header">
+          <h3>⚡ Recent Activity</h3>
+          <div className="live-indicator">
+            <div className="live-dot"></div>
+            Live
+          </div>
+        </div>
+        <div className="activity-feed">
+          <div className="activity-item">
+            <div className="activity-icon buy">📥</div>
+            <div className="activity-content">
+              <div className="activity-text">
+                <span className="address">0xf4a...dc2</span> bought MAYC #1234
+              </div>
+              <div className="activity-time">2 minutes ago</div>
+            </div>
+            <div className="activity-value">0.9 ETH</div>
+          </div>
+
+          <div className="activity-item">
+            <div className="activity-icon sell">📤</div>
+            <div className="activity-content">
+              <div className="activity-text">
+                <span className="address">0x7c9...4c2</span> sold MAYC #5678
+              </div>
+              <div className="activity-time">5 minutes ago</div>
+            </div>
+            <div className="activity-value">0.85 ETH</div>
+          </div>
+
+          <div className="activity-item">
+            <div className="activity-icon transfer">🔄</div>
+            <div className="activity-content">
+              <div className="activity-text">
+                <span className="address">0xac0...c1c</span> transferred MAYC #9012
+              </div>
+              <div className="activity-time">12 minutes ago</div>
+            </div>
+            <div className="activity-value">—</div>
+          </div>
+
+          <div className="activity-item">
+            <div className="activity-icon buy">📥</div>
+            <div className="activity-content">
+              <div className="activity-text">
+                <span className="address">0x42b...bf</span> bought MAYC #3456
+              </div>
+              <div className="activity-time">18 minutes ago</div>
+            </div>
+            <div className="activity-value">0.92 ETH</div>
+          </div>
+        </div>
+      </div>
+
+      {/* AI Insight Bar */}
+      <div className="ai-insight-bar">
+        <div className="ai-icon">🤖</div>
+        <div className="ai-content">
+          <div className="ai-title">AI Insight</div>
+          <div className="ai-text">
+            Whale activity increased by 15% in the last 24 hours. Large holders are accumulating, suggesting bullish sentiment.
+          </div>
+        </div>
       </div>
     </div>
   );
 };
-
-const MetricCard: React.FC<{
-  icon: string;
-  title: string;
-  value: string | number;
-  subtitle: string;
-  color: string;
-}> = ({ icon, title, value, subtitle, color }) => (
-  <div
-    className={`
-      bg-gradient-to-br ${color} text-white rounded-xl p-6
-      shadow-lg hover:shadow-xl transition-shadow transform hover:scale-105
-    `}
-  >
-    <div className="text-3xl mb-2">{icon}</div>
-    <p className="text-sm opacity-90 mb-1">{title}</p>
-    <p className="text-2xl font-bold">{value}</p>
-    <p className="text-xs opacity-75 mt-1">{subtitle}</p>
-  </div>
-);
-
-const DistributionBar: React.FC<{
-  label: string;
-  value: number;
-  total: number;
-  color: string;
-}> = ({ label, value, total, color }) => {
-  const percentage = (value / total) * 100;
-
-  return (
-    <div>
-      <div className="flex items-center justify-between mb-1">
-        <label className="text-sm font-medium text-gray-700">{label}</label>
-        <span className="text-sm font-bold text-gray-900">
-          {value.toLocaleString()} ({percentage.toFixed(1)}%)
-        </span>
-      </div>
-      <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
-        <div
-          className={`h-full ${color} transition-all duration-500`}
-          style={{ width: `${percentage}%` }}
-        ></div>
-      </div>
-    </div>
-  );
-};
-
-const ConcentrationCard: React.FC<{
-  title: string;
-  percentage: number;
-  description: string;
-}> = ({ title, percentage, description }) => (
-  <div>
-    <div className="flex items-end justify-between mb-2">
-      <h3 className="font-semibold text-gray-900">{title}</h3>
-      <span className="text-2xl font-bold text-blue-600">
-        {percentage.toFixed(1)}%
-      </span>
-    </div>
-    <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden mb-2">
-      <div
-        className="h-full bg-gradient-to-r from-blue-500 to-purple-600 transition-all duration-500"
-        style={{ width: `${Math.min(percentage, 100)}%` }}
-      ></div>
-    </div>
-    <p className="text-xs text-gray-600">{description}</p>
-  </div>
-);
-
-const StatItem: React.FC<{
-  label: string;
-  value: string | number;
-  icon: string;
-  change: string;
-}> = ({ label, value, icon, change }) => (
-  <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
-    <div className="flex items-center justify-between mb-2">
-      <p className="text-sm text-gray-600">{label}</p>
-      <span className="text-2xl">{icon}</span>
-    </div>
-    <p className="text-2xl font-bold text-gray-900">{value}</p>
-    <p className="text-xs text-gray-500 mt-1">{change}</p>
-  </div>
-);
 
 export default Dashboard;

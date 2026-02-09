@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import axios from 'axios';
-import { ChartSkeleton } from '../loading';
+import { Spinner } from '../loading';
 
 interface ActivityDataPoint {
   timestamp: string;
@@ -88,7 +88,11 @@ const ActivityTrendChart: React.FC = () => {
   };
 
   if (loading) {
-    return <ChartSkeleton />;
+    return (
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '300px' }}>
+        <Spinner variant="ring" size="lg" />
+      </div>
+    );
   }
 
   if (data.length === 0) {

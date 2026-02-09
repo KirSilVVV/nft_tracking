@@ -1,11 +1,10 @@
 /* ============================================
-   LOADING STATES - NFT Tracker
-   Skeleton screens, spinners, and empty states
+   LOADING STATES CSS - NFT-Tracker ATLAS Design
    ============================================ */
 
-/* Base Skeleton */
+/* SKELETON BASE */
 .skeleton {
-  background: linear-gradient(90deg, #1A1A24 0%, #252532 50%, #1A1A24 100%);
+  background: linear-gradient(90deg, var(--card) 0%, var(--elev) 50%, var(--card) 100%);
   background-size: 200% 100%;
   animation: shimmer 1.5s infinite;
   border-radius: 8px;
@@ -16,12 +15,12 @@
   100% { background-position: -200% 0; }
 }
 
-/* Spinner - Ring */
+/* SPINNERS */
 .spinner-ring {
   width: 48px;
   height: 48px;
-  border: 4px solid #2A2A3A;
-  border-top-color: #4E8EF7;
+  border: 4px solid var(--brd);
+  border-top-color: var(--gold);
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
 }
@@ -30,10 +29,213 @@
   to { transform: rotate(360deg); }
 }
 
+.spinner-dots {
+  display: flex;
+  gap: 8px;
+}
+
+.spinner-dots .dot {
+  width: 12px;
+  height: 12px;
+  background: var(--gold);
+  border-radius: 50%;
+  animation: bounce 1.4s infinite ease-in-out;
+}
+
+.spinner-dots .dot:nth-child(1) { animation-delay: -0.32s; }
+.spinner-dots .dot:nth-child(2) { animation-delay: -0.16s; }
+
+@keyframes bounce {
+  0%, 80%, 100% {
+    transform: scale(0);
+    opacity: 0.3;
+  }
+  40% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.spinner-pulse {
+  width: 48px;
+  height: 48px;
+  background: var(--gold);
+  border-radius: 50%;
+  animation: pulse 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.3;
+    transform: scale(0.8);
+  }
+}
+
+.spinner-whale {
+  font-size: 48px;
+  animation: whale-bounce 1s ease-in-out infinite;
+}
+
+@keyframes whale-bounce {
+  0%, 100% {
+    transform: translateY(0) rotate(-5deg);
+  }
+  50% {
+    transform: translateY(-10px) rotate(5deg);
+  }
+}
+
+.spinner-dual {
+  width: 48px;
+  height: 48px;
+  position: relative;
+}
+
+.spinner-dual::before,
+.spinner-dual::after {
+  content: '';
+  position: absolute;
+  border: 3px solid transparent;
+  border-radius: 50%;
+}
+
+.spinner-dual::before {
+  inset: 0;
+  border-top-color: var(--gold);
+  animation: spin 1s linear infinite;
+}
+
+.spinner-dual::after {
+  inset: 6px;
+  border-bottom-color: var(--info);
+  animation: spin 0.7s linear infinite reverse;
+}
+
+.spinner-bar {
+  width: 200px;
+  height: 4px;
+  background: var(--brd);
+  border-radius: 2px;
+  overflow: hidden;
+  position: relative;
+}
+
+.spinner-bar::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: var(--gold);
+  transform-origin: left;
+  animation: progress-indeterminate 1.5s cubic-bezier(0.65, 0.815, 0.735, 0.395) infinite;
+}
+
+@keyframes progress-indeterminate {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(200%); }
+}
+
+/* SKELETON CARDS */
+.skeleton-card {
+  background: var(--card);
+  border: 1px solid var(--brd);
+  border-radius: 16px;
+  padding: 24px;
+}
+
+/* NFT Card Skeleton */
+.skeleton-nft {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.skeleton-nft-image {
+  aspect-ratio: 1;
+  border-radius: 12px;
+}
+
+.skeleton-nft-title {
+  height: 20px;
+  width: 70%;
+  border-radius: 6px;
+}
+
+.skeleton-nft-subtitle {
+  height: 16px;
+  width: 50%;
+  border-radius: 6px;
+}
+
+.skeleton-nft-footer {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 8px;
+}
+
+.skeleton-nft-price {
+  height: 24px;
+  width: 80px;
+  border-radius: 6px;
+}
+
+.skeleton-nft-badge {
+  height: 24px;
+  width: 60px;
+  border-radius: 6px;
+}
+
+/* Transaction Row Skeleton */
+.skeleton-transaction {
+  background: var(--card);
+  border: 1px solid var(--brd);
+  border-radius: 12px;
+  padding: 16px;
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.skeleton-tx-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 10px;
+  flex-shrink: 0;
+}
+
+.skeleton-tx-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.skeleton-tx-title {
+  height: 18px;
+  width: 60%;
+  border-radius: 6px;
+}
+
+.skeleton-tx-subtitle {
+  height: 14px;
+  width: 40%;
+  border-radius: 6px;
+}
+
+.skeleton-tx-amount {
+  width: 100px;
+  height: 28px;
+  border-radius: 6px;
+}
+
 /* Dashboard Widget Skeleton */
 .skeleton-widget {
-  background: white;
-  border: 1px solid #E5E7EB;
+  background: var(--card);
+  border: 1px solid var(--brd);
   border-radius: 16px;
   padding: 24px;
 }
@@ -63,27 +265,39 @@
   margin-bottom: 12px;
 }
 
-.skeleton-widget-subtitle {
+.skeleton-widget-change {
   height: 16px;
   width: 80px;
   border-radius: 6px;
 }
 
-/* Chart Skeleton */
-.skeleton-chart {
-  height: 300px;
+.skeleton-widget-chart {
+  height: 120px;
   width: 100%;
-  border-radius: 12px;
-  position: relative;
-  overflow: hidden;
+  border-radius: 8px;
+  margin-top: 20px;
 }
 
 /* Table Skeleton */
 .skeleton-table {
-  background: white;
-  border: 1px solid #E5E7EB;
+  background: var(--card);
+  border: 1px solid var(--brd);
   border-radius: 16px;
   overflow: hidden;
+}
+
+.skeleton-table-header {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr 1fr;
+  gap: 16px;
+  padding: 16px 20px;
+  background: var(--bg2);
+  border-bottom: 1px solid var(--brd);
+}
+
+.skeleton-table-header-cell {
+  height: 16px;
+  border-radius: 6px;
 }
 
 .skeleton-table-row {
@@ -91,7 +305,7 @@
   grid-template-columns: 2fr 1fr 1fr 1fr;
   gap: 16px;
   padding: 16px 20px;
-  border-bottom: 1px solid #E5E7EB;
+  border-bottom: 1px solid var(--brd);
 }
 
 .skeleton-table-row:last-child {
@@ -103,58 +317,105 @@
   border-radius: 6px;
 }
 
-/* Whale Card Skeleton */
-.skeleton-whale-card {
-  background: white;
-  border: 1px solid #E5E7EB;
-  border-radius: 16px;
-  padding: 24px;
-  display: flex;
-  gap: 20px;
+/* Blockchain Loading State */
+.blockchain-loader {
+  background: var(--card);
+  border: 1px solid var(--brd);
+  border-radius: 20px;
+  padding: 48px;
+  text-align: center;
+  position: relative;
+  overflow: hidden;
 }
 
-.skeleton-whale-avatar {
-  width: 64px;
-  height: 64px;
-  border-radius: 12px;
-  flex-shrink: 0;
+.blockchain-loader::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 200%;
+  height: 3px;
+  background: linear-gradient(90deg, transparent, var(--gold), transparent);
+  animation: scan 2s linear infinite;
 }
 
-.skeleton-whale-content {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
+@keyframes scan {
+  to { left: 100%; }
 }
 
-.skeleton-whale-title {
-  height: 24px;
-  width: 60%;
-  border-radius: 6px;
-}
-
-.skeleton-whale-subtitle {
-  height: 16px;
-  width: 40%;
-  border-radius: 6px;
-}
-
-.skeleton-whale-stats {
-  display: flex;
-  gap: 20px;
-  margin-top: 8px;
-}
-
-.skeleton-whale-stat {
-  height: 32px;
+.blockchain-icon {
   width: 80px;
-  border-radius: 6px;
+  height: 80px;
+  margin: 0 auto 24px;
+  background: var(--gold-d);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 40px;
+  position: relative;
+}
+
+.blockchain-icon::after {
+  content: '';
+  position: absolute;
+  inset: -8px;
+  border: 3px solid var(--gold);
+  border-radius: 50%;
+  border-top-color: transparent;
+  animation: spin 1.5s linear infinite;
+}
+
+.blockchain-title {
+  font-family: 'Outfit', sans-serif;
+  font-size: 24px;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+
+.blockchain-message {
+  font-size: 14px;
+  color: var(--t2);
+  margin-bottom: 20px;
+}
+
+.blockchain-steps {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 24px;
+}
+
+.blockchain-step {
+  width: 40px;
+  height: 4px;
+  background: var(--brd);
+  border-radius: 2px;
+  position: relative;
+  overflow: hidden;
+}
+
+.blockchain-step.active::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: var(--gold);
+  animation: step-fill 1s ease-in-out;
+}
+
+.blockchain-step.complete {
+  background: var(--ok);
+}
+
+@keyframes step-fill {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(0); }
 }
 
 /* Empty State */
 .empty-state {
-  background: white;
-  border: 1px solid #E5E7EB;
+  background: var(--card);
+  border: 1px solid var(--brd);
   border-radius: 20px;
   padding: 60px 40px;
   text-align: center;
@@ -164,7 +425,7 @@
   width: 100px;
   height: 100px;
   margin: 0 auto 24px;
-  background: #F3F4F6;
+  background: var(--bg2);
   border-radius: 50%;
   display: flex;
   align-items: center;
@@ -174,29 +435,43 @@
 }
 
 .empty-title {
-  font-family: 'Inter', sans-serif;
+  font-family: 'Outfit', sans-serif;
   font-size: 24px;
   font-weight: 700;
   margin-bottom: 12px;
-  color: #111827;
 }
 
 .empty-message {
   font-size: 14px;
-  color: #6B7280;
+  color: var(--t2);
   margin-bottom: 24px;
   max-width: 400px;
   margin-left: auto;
   margin-right: auto;
 }
 
+/* Grid Layouts */
+.grid {
+  display: grid;
+  gap: 24px;
+}
+
+.grid-3 {
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+}
+
+.grid-2 {
+  grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+}
+
 /* Responsive */
 @media (max-width: 768px) {
-  .skeleton-whale-card {
-    flex-direction: column;
+  .grid-3,
+  .grid-2 {
+    grid-template-columns: 1fr;
   }
 
-  .skeleton-table-row {
-    grid-template-columns: 1fr;
+  .blockchain-loader {
+    padding: 32px 24px;
   }
 }

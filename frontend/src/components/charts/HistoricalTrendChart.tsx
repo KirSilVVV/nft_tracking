@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import axios from 'axios';
-import { ChartSkeleton } from '../loading';
+import { Spinner } from '../loading';
 
 interface DailyMetric {
   date: string;
@@ -78,7 +78,11 @@ const HistoricalTrendChart: React.FC<HistoricalTrendChartProps> = ({ defaultDays
   };
 
   if (loading) {
-    return <ChartSkeleton />;
+    return (
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '300px' }}>
+        <Spinner variant="ring" size="lg" />
+      </div>
+    );
   }
 
   if (!data || data.dailyBreakdown.length === 0) {

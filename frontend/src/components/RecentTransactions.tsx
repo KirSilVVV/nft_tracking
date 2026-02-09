@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import axios from 'axios';
+import { TransactionListSkeleton, EmptyState, Spinner } from './loading';
 
 interface Transaction {
   tokenId: number;
@@ -129,18 +130,13 @@ const RecentTransactions: React.FC = () => {
       </div>
 
       {loading ? (
-        <div className="space-y-3">
-          {[...Array(5)].map((_, i) => (
-            <div
-              key={i}
-              className="animate-pulse bg-gray-100 h-20 rounded-lg"
-            ></div>
-          ))}
-        </div>
+        <TransactionListSkeleton count={5} />
       ) : transactions.length === 0 ? (
-        <div className="text-center py-12 text-gray-500">
-          <p>No transactions found</p>
-        </div>
+        <EmptyState
+          icon="📭"
+          title="No transactions found"
+          message={`No activity in the last ${timeFilter} hours`}
+        />
       ) : (
         <div className="space-y-3 max-h-[600px] overflow-y-auto">
           {visibleTransactions.map((tx, idx) => (
@@ -207,11 +203,16 @@ const RecentTransactions: React.FC = () => {
           <button
             onClick={loadMore}
             disabled={loadingMore}
-            className="w-full py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors disabled:opacity-50"
+            className="w-full py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
           >
-            {loadingMore
-              ? 'Loading...'
-              : `Load More (${transactions.length - displayCount} remaining)`}
+            {loadingMore ? (
+              <>
+                <Spinner variant="ring" size="sm" />
+                Loading...
+              </>
+            ) : (
+              `Load More (${transactions.length - displayCount} remaining)`
+            )}
           </button>
         )}
         <button

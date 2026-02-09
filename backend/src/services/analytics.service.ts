@@ -67,13 +67,15 @@ export class AnalyticsService {
       single: 0, // 1 NFT
       small: 0, // 2-5 NFT
       medium: 0, // 6-10 NFT
-      whales: 0, // 10+ NFT
+      large: 0, // 11-19 NFT
+      whales: 0, // 20+ NFT
     };
 
     for (const holder of holders) {
       if (holder.count === 1) distribution.single++;
       else if (holder.count <= 5) distribution.small++;
       else if (holder.count <= 10) distribution.medium++;
+      else if (holder.count <= 19) distribution.large++;
       else distribution.whales++;
     }
 

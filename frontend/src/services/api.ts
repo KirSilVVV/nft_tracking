@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { WhaleListResponse, Whale, WhaleAnalytics, QuickStats, ActivityResponse, NftMetadataResponse, EnrichedWhaleResponse } from '../types/whale.types';
+import { AlertRule, AlertHistory, AlertStats, CreateAlertRequest, UpdateAlertRequest } from '../types/alert.types';
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:6252/api/whales';
 
@@ -75,6 +76,117 @@ export const whaleAPI = {
   getWhaleEnriched: async (address: string): Promise<EnrichedWhaleResponse> => {
     const response = await apiClient.get(`/${address}/enriched`, { timeout: 60000 });
     return response.data;
+  },
+
+  /**
+   * Search NFT by image (AI visual search)
+   */
+  searchByImage: async (image: File, limit: number = 10, threshold: number = 70): Promise<{
+    matches: Array<{
+      tokenId: number;
+      name: string;
+      image: string;
+      similarity: number;
+      hammingDistance: number;
+    }>;
+  }> => {
+    const formData = new FormData();
+    formData.append('image', image);
+
+    const baseUrl = API_BASE_URL.replace('/api/whales', '');
+    const response = await axios.post(
+      `${baseUrl}/api/nft/search-by-image?limit=${limit}&threshold=${threshold}`,
+      formData,
+      {
+        headers: { 'Content-Type': 'multipart/form-data' },
+        timeout: 120000, // 2 minutes for indexing
+      }
+    );
+    return response.data;
+  },
+};
+
+/**
+ * Alert API - Manage price and whale alerts
+ */
+export const alertAPI = {
+  /**
+   * Get all alert rules
+   */
+  getRules: async (): Promise<AlertRule[]> => {
+    const baseUrl = API_BASE_URL.replace('/api/whales', '');
+    const response = await axios.get(`${baseUrl}/api/alerts/rules`);
+    return response.data.rules;
+  },
+
+  /**
+   * Get specific alert rule
+   */
+  getRule: async (id: string): Promise<AlertRule> => {
+    const baseUrl = API_BASE_URL.replace('/api/whales', '');
+    const response = await axios.get(`${baseUrl}/api/alerts/rules/${id}`);
+    return response.data.rule;
+  },
+
+  /**
+   * Create new alert rule
+   */
+  createRule: async (data: CreateAlertRequest): Promise<AlertRule> => {
+    const baseUrl = API_BASE_URL.replace('/api/whales', '');
+    const response = await axios.post(`${baseUrl}/api/alerts/rules`, data);
+    return response.data.rule;
+  },
+
+  /**
+   * Update alert rule
+   */
+  updateRule: async (id: string, data: UpdateAlertRequest): Promise<AlertRule> => {
+    const baseUrl = API_BASE_URL.replace('/api/whales', '');
+    const response = await axios.put(`${baseUrl}/api/alerts/rules/${id}`, data);
+    return response.data.rule;
+  },
+
+  /**
+   * Delete alert rule
+   */
+  deleteRule: async (id: string): Promise<void> => {
+    const baseUrl = API_BASE_URL.replace('/api/whales', '');
+    await axios.delete(`${baseUrl}/api/alerts/rules/${id}`);
+  },
+
+  /**
+   * Toggle alert rule status
+   */
+  toggleRule: async (id: string): Promise<AlertRule> => {
+    const baseUrl = API_BASE_URL.replace('/api/whales', '');
+    const response = await axios.post(`${baseUrl}/api/alerts/rules/${id}/toggle`);
+    return response.data.rule;
+  },
+
+  /**
+   * Get alert statistics
+   */
+  getStats: async (): Promise<AlertStats> => {
+    const baseUrl = API_BASE_URL.replace('/api/whales', '');
+    const response = await axios.get(`${baseUrl}/api/alerts/stats`);
+    return response.data.stats;
+  },
+
+  /**
+   * Get alert history
+   */
+  getHistory: async (limit: number = 50): Promise<AlertHistory[]> => {
+    const baseUrl = API_BASE_URL.replace('/api/whales', '');
+    const response = await axios.get(`${baseUrl}/api/alerts/history?limit=${limit}`);
+    return response.data.history;
+  },
+
+  /**
+   * Acknowledge an alert
+   */
+  acknowledgeAlert: async (id: string): Promise<void> => {
+    const baseUrl = API_BASE_URL.replace('/api/whales', '');
+    await axios.post(`${baseUrl}/api/alerts/history/${id}/acknowledge`);
   },
 };
 

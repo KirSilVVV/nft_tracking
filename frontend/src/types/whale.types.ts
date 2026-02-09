@@ -42,6 +42,7 @@ export interface WhaleAnalytics {
     single: number;
     small: number;
     medium: number;
+    large: number;
     whales: number;
   };
   statistics: {
@@ -50,9 +51,11 @@ export interface WhaleAnalytics {
     averagePerHolder: number;
     medianPerHolder: number;
   };
+  totalHolders: number;
   floorPrice: number;
   totalMarketCap: number;
   whale90Concentration: number;
+  volume24h: number;
 }
 
 export interface QuickStats {

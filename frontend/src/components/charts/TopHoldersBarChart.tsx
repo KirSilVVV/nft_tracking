@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell } from 'recharts';
 import axios from 'axios';
-import { ChartSkeleton } from '../loading';
+import { Spinner } from '../loading';
 
 interface HolderData {
   address: string;
@@ -74,7 +74,11 @@ const TopHoldersBarChart: React.FC = () => {
   };
 
   if (loading) {
-    return <ChartSkeleton />;
+    return (
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '300px' }}>
+        <Spinner variant="ring" size="lg" />
+      </div>
+    );
   }
 
   if (data.length === 0) {

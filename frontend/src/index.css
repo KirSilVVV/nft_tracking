@@ -2,6 +2,9 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ATLAS Design System */
+@import './styles/design-system.css';
+
 /* Loading states */
 @import './styles/loading.css';
 

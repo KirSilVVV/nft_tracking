@@ -2,12 +2,14 @@ import { Router, Request, Response } from 'express';
 import { getBlockchainService } from '../services/blockchain.service';
 import { getAnalyticsService } from '../services/analytics.service';
 import { getCacheService } from '../services/cache.service';
+import { getAlertService } from '../services/alert.service';
 import { logger } from '../utils/logger';
 
 const router = Router();
 const blockchainService = getBlockchainService();
 const analyticsService = getAnalyticsService();
 const cacheService = getCacheService();
+const alertService = getAlertService();
 
 /**
  * GET /api/health
@@ -588,6 +590,207 @@ router.get('/metrics/historical', async (req: Request, res: Response) => {
   } catch (error) {
     logger.error('Error fetching historical metrics', error);
     res.status(500).json({ error: 'Failed to fetch historical metrics' });
+  }
+});
+
+/**
+ * ALERTS API ENDPOINTS
+ */
+
+/**
+ * GET /api/alerts/rules
+ * Get all alert rules
+ */
+router.get('/alerts/rules', (req: Request, res: Response) => {
+  try {
+    const rules = alertService.getAllRules();
+    res.json({
+      success: true,
+      count: rules.length,
+      rules,
+      timestamp: new Date(),
+    });
+  } catch (error) {
+    logger.error('Error fetching alert rules', error);
+    res.status(500).json({ error: 'Failed to fetch alert rules' });
+  }
+});
+
+/**
+ * GET /api/alerts/rules/:id
+ * Get specific alert rule
+ */
+router.get('/alerts/rules/:id', (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const rule = alertService.getRule(id);
+
+    if (!rule) {
+      return res.status(404).json({ error: 'Alert rule not found' });
+    }
+
+    res.json({
+      success: true,
+      rule,
+      timestamp: new Date(),
+    });
+  } catch (error) {
+    logger.error('Error fetching alert rule', error);
+    res.status(500).json({ error: 'Failed to fetch alert rule' });
+  }
+});
+
+/**
+ * POST /api/alerts/rules
+ * Create new alert rule
+ */
+router.post('/alerts/rules', (req: Request, res: Response) => {
+  try {
+    const rule = alertService.createRule(req.body);
+    res.status(201).json({
+      success: true,
+      rule,
+      timestamp: new Date(),
+    });
+  } catch (error) {
+    logger.error('Error creating alert rule', error);
+    res.status(500).json({ error: 'Failed to create alert rule' });
+  }
+});
+
+/**
+ * PUT /api/alerts/rules/:id
+ * Update alert rule
+ */
+router.put('/alerts/rules/:id', (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const rule = alertService.updateRule(id, req.body);
+
+    if (!rule) {
+      return res.status(404).json({ error: 'Alert rule not found' });
+    }
+
+    res.json({
+      success: true,
+      rule,
+      timestamp: new Date(),
+    });
+  } catch (error) {
+    logger.error('Error updating alert rule', error);
+    res.status(500).json({ error: 'Failed to update alert rule' });
+  }
+});
+
+/**
+ * DELETE /api/alerts/rules/:id
+ * Delete alert rule
+ */
+router.delete('/alerts/rules/:id', (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const deleted = alertService.deleteRule(id);
+
+    if (!deleted) {
+      return res.status(404).json({ error: 'Alert rule not found' });
+    }
+
+    res.json({
+      success: true,
+      message: 'Alert rule deleted',
+      timestamp: new Date(),
+    });
+  } catch (error) {
+    logger.error('Error deleting alert rule', error);
+    res.status(500).json({ error: 'Failed to delete alert rule' });
+  }
+});
+
+/**
+ * POST /api/alerts/rules/:id/toggle
+ * Toggle alert rule status (active/paused)
+ */
+router.post('/alerts/rules/:id/toggle', (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const rule = alertService.toggleRule(id);
+
+    if (!rule) {
+      return res.status(404).json({ error: 'Alert rule not found' });
+    }
+
+    res.json({
+      success: true,
+      rule,
+      message: `Alert ${rule.status === 'active' ? 'activated' : 'paused'}`,
+      timestamp: new Date(),
+    });
+  } catch (error) {
+    logger.error('Error toggling alert rule', error);
+    res.status(500).json({ error: 'Failed to toggle alert rule' });
+  }
+});
+
+/**
+ * GET /api/alerts/stats
+ * Get alert statistics
+ */
+router.get('/alerts/stats', (req: Request, res: Response) => {
+  try {
+    const stats = alertService.getStats();
+    res.json({
+      success: true,
+      stats,
+      timestamp: new Date(),
+    });
+  } catch (error) {
+    logger.error('Error fetching alert stats', error);
+    res.status(500).json({ error: 'Failed to fetch alert stats' });
+  }
+});
+
+/**
+ * GET /api/alerts/history
+ * Get alert history
+ */
+router.get('/alerts/history', (req: Request, res: Response) => {
+  try {
+    const limit = parseInt(req.query.limit as string) || 50;
+    const history = alertService.getHistory(limit);
+
+    res.json({
+      success: true,
+      count: history.length,
+      history,
+      timestamp: new Date(),
+    });
+  } catch (error) {
+    logger.error('Error fetching alert history', error);
+    res.status(500).json({ error: 'Failed to fetch alert history' });
+  }
+});
+
+/**
+ * POST /api/alerts/history/:id/acknowledge
+ * Acknowledge an alert
+ */
+router.post('/alerts/history/:id/acknowledge', (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const acknowledged = alertService.acknowledgeAlert(id);
+
+    if (!acknowledged) {
+      return res.status(404).json({ error: 'Alert not found' });
+    }
+
+    res.json({
+      success: true,
+      message: 'Alert acknowledged',
+      timestamp: new Date(),
+    });
+  } catch (error) {
+    logger.error('Error acknowledging alert', error);
+    res.status(500).json({ error: 'Failed to acknowledge alert' });
   }
 });
 

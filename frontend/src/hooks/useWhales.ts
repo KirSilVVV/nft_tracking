@@ -109,3 +109,16 @@ export const useWhaleEnriched = (address: string) => {
     gcTime: 1000 * 60 * 120, // 2 hours
   } as const);
 };
+
+/**
+ * Hook to search NFT by image (mutation since it's a POST request)
+ */
+export const useImageSearch = () => {
+  return useMutation({
+    mutationFn: ({ image, limit = 10, threshold = 85 }: {
+      image: File;
+      limit?: number;
+      threshold?: number;
+    }) => whaleAPI.searchByImage(image, limit, threshold),
+  });
+};

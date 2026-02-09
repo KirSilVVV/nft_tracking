@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 
-type PageType = 'whales' | 'dashboard' | 'whale-detail' | 'mutant-finder' | 'portfolio-analyzer';
+type PageType = 'home' | 'whales' | 'dashboard' | 'whale-detail' | 'mutant-finder' | 'portfolio-analyzer' | 'flip-calculator';
 
 interface NavigationProps {
   currentPage: PageType;

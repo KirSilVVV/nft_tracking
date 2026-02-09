@@ -110,6 +110,55 @@ export class AlchemySDKProvider {
   }
 
   /**
+   * Get collection stats including 24h volume from OpenSea API v2
+   */
+  async getCollectionStats(contractAddress: string): Promise<{
+    volume24h: number | null;
+    volumeChange24h: number | null;
+    floorPrice: number | null;
+    sales24h: number | null;
+  }> {
+    try {
+      logger.info(`Fetching collection stats for ${contractAddress} from OpenSea API`);
+
+      // OpenSea API v2 endpoint for collection stats
+      const slug = 'mutant-ape-yacht-club'; // MAYC collection slug
+      const response = await fetch(`https://api.opensea.io/api/v2/collections/${slug}/stats`, {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json',
+          'X-API-KEY': process.env.OPENSEA_API_KEY || '',
+        },
+      });
+
+      if (!response.ok) {
+        logger.warn(`OpenSea API returned status ${response.status}`);
+        return { volume24h: null, volumeChange24h: null, floorPrice: null, sales24h: null };
+      }
+
+      const data = await response.json() as any;
+      logger.info(`OpenSea stats received:`, JSON.stringify(data).substring(0, 300));
+
+      // Extract stats from OpenSea response
+      // 24h data is in intervals array where interval === "one_day"
+      const oneDayInterval = data.intervals?.find((i: any) => i.interval === 'one_day') || {};
+      const totalStats = data.total || {};
+
+      const volume24h = oneDayInterval.volume ? parseFloat(oneDayInterval.volume) : null;
+      const volumeChange24h = oneDayInterval.volume_change ? parseFloat(oneDayInterval.volume_change) : null;
+      const floorPrice = totalStats.floor_price ? parseFloat(totalStats.floor_price) : null;
+      const sales24h = oneDayInterval.sales ? parseInt(oneDayInterval.sales) : null;
+
+      logger.info(`📊 24h Volume: ${volume24h} ETH, Sales: ${sales24h}, Floor: ${floorPrice} ETH`);
+
+      return { volume24h, volumeChange24h, floorPrice, sales24h };
+    } catch (error) {
+      logger.error(`Failed to get collection stats from OpenSea`, error);
+      return { volume24h: null, volumeChange24h: null, floorPrice: null, sales24h: null };
+    }
+  }
+
+  /**
    * Get collection metadata
    */
   async getCollectionMetadata(contractAddress: string): Promise<any> {
@@ -163,6 +212,90 @@ export class AlchemySDKProvider {
       };
     } catch (error) {
       logger.error(`Failed to get NFT metadata for ${contractAddress} #${tokenId}`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get all current owners for a contract (returns actual NFT holders, not just recent transfers)
+   * This is the CORRECT method for getting whale data
+   */
+  async getOwnersForContract(contractAddress: string): Promise<{
+    owners: string[];
+    totalCount: number;
+    ownerBalances: Map<string, number>;
+  }> {
+    try {
+      logger.info(`🔍 Fetching ALL current owners for contract ${contractAddress}`);
+
+      const response = await this.alchemy.nft.getOwnersForContract(contractAddress);
+
+      logger.info(`✅ Found ${response.owners.length} unique owners for ${contractAddress}`);
+
+      // Build owner -> token count map
+      const ownerBalances = new Map<string, number>();
+
+      // If response includes token balances, use them
+      if (response.owners) {
+        response.owners.forEach((owner: string) => {
+          const count = ownerBalances.get(owner.toLowerCase()) || 0;
+          ownerBalances.set(owner.toLowerCase(), count + 1);
+        });
+      }
+
+      return {
+        owners: response.owners,
+        totalCount: response.owners.length,
+        ownerBalances,
+      };
+    } catch (error) {
+      logger.error(`Failed to get owners for contract ${contractAddress}`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get detailed ownership data with token counts per address
+   * This returns: { address: "0x...", tokenBalances: 45 } format
+   */
+  async getOwnersForContractWithTokenCount(contractAddress: string): Promise<{
+    address: string;
+    tokenBalance: number;
+  }[]> {
+    try {
+      logger.info(`🔍 Fetching owners WITH token counts for ${contractAddress}`);
+
+      // Use withTokenBalances option to get counts
+      const response = await this.alchemy.nft.getOwnersForContract(contractAddress, {
+        withTokenBalances: true,
+      });
+
+      logger.info(`✅ Got ${response.owners.length} owners with token balances`);
+
+      // Debug: log first owner structure
+      if (response.owners.length > 0) {
+        logger.info('🔍 First owner structure:', JSON.stringify(response.owners[0]));
+      }
+
+      return response.owners.map((owner: any) => {
+        // Handle two possible response formats:
+        // 1. String address (withTokenBalances=false)
+        // 2. Object with ownerAddress and tokenBalances array
+        if (typeof owner === 'string') {
+          return { address: owner, tokenBalance: 1 };
+        }
+
+        const address = owner.ownerAddress || owner.address;
+        // tokenBalances is an array of {tokenId, balance} objects
+        // The length of this array = number of NFTs owned
+        const tokenCount = Array.isArray(owner.tokenBalances)
+          ? owner.tokenBalances.length
+          : 1;
+
+        return { address, tokenBalance: tokenCount };
+      });
+    } catch (error) {
+      logger.error(`Failed to get owners with counts for ${contractAddress}`, error);
       throw error;
     }
   }
