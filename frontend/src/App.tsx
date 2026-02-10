@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider } from './contexts/AuthContext';
+import { ToastProvider } from './contexts/ToastContext';
 import Homepage from './pages/Homepage';
 import WhaleList from './components/WhaleList';
 import Dashboard from './pages/Dashboard';
@@ -69,10 +70,11 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
-        {/* Homepage: показывается БЕЗ Sidebar/Topbar */}
-        {currentPage === 'home' ? (
-          <Homepage onNavigate={handleNavigate} />
-        ) : (
+        <ToastProvider>
+          {/* Homepage: показывается БЕЗ Sidebar/Topbar */}
+          {currentPage === 'home' ? (
+            <Homepage onNavigate={handleNavigate} />
+          ) : (
           <div style={{ display: 'flex', minHeight: '100vh' }}>
             {/* Sidebar - fixed left navigation */}
             <Sidebar currentPage={currentPage} onNavigate={handleNavigate} />
@@ -104,6 +106,7 @@ function App() {
             </div>
           </div>
         )}
+        </ToastProvider>
       </AuthProvider>
     </QueryClientProvider>
   );

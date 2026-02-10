@@ -12,6 +12,7 @@ import {
 import { CreateAlertRequest, AlertType, AlertCondition, AlertChannel, AlertHistory } from '../types/alert.types';
 import { Spinner } from '../components/loading';
 import { useWebSocket } from '../hooks/useWebSocket';
+import { useToast } from '../contexts/ToastContext';
 import '../styles/alerts.css';
 
 const Alerts: React.FC = () => {
@@ -32,6 +33,9 @@ const Alerts: React.FC = () => {
   const WS_URL = process.env.REACT_APP_WS_URL || 'ws://localhost:6255';
   const { isConnected, lastEvent } = useWebSocket(WS_URL);
 
+  // Toast notifications
+  const { showToast } = useToast();
+
   // Listen for incoming alert events from WebSocket
   useEffect(() => {
     if (lastEvent && lastEvent.type === 'alert' && lastEvent.data) {
@@ -51,8 +55,11 @@ const Alerts: React.FC = () => {
       // Update local history state (prepend new alert)
       // Note: This will be overwritten by next query refetch, but provides instant feedback
       console.log('🔔 Live alert received:', newAlert);
+
+      // Show toast notification for live alert
+      showToast(`🔔 ${newAlert.ruleName}: ${newAlert.message}`, 'warning', 8000);
     }
-  }, [lastEvent]);
+  }, [lastEvent, showToast]);
 
   // Modal form state
   const [newAlert, setNewAlert] = useState<CreateAlertRequest>({
@@ -65,7 +72,7 @@ const Alerts: React.FC = () => {
 
   const handleCreateAlert = () => {
     if (!newAlert.name || newAlert.threshold <= 0) {
-      alert('Please fill all required fields');
+      showToast('Please fill all required fields', 'warning');
       return;
     }
 
@@ -79,10 +86,11 @@ const Alerts: React.FC = () => {
           threshold: 0,
           channels: ['telegram'],
         });
+        showToast('Alert rule created successfully', 'success');
       },
       onError: (error) => {
         console.error('Failed to create alert:', error);
-        alert('Failed to create alert. Please try again.');
+        showToast('Failed to create alert. Please try again.', 'error');
       },
     });
   };
@@ -93,7 +101,15 @@ const Alerts: React.FC = () => {
 
   const handleDeleteRule = (id: string) => {
     if (window.confirm('Are you sure you want to delete this alert rule?')) {
-      deleteAlert(id);
+      deleteAlert(id, {
+        onSuccess: () => {
+          showToast('Alert rule deleted', 'success');
+        },
+        onError: (error) => {
+          console.error('Failed to delete alert:', error);
+          showToast('Failed to delete alert rule', 'error');
+        },
+      });
     }
   };
 

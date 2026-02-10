@@ -2,7 +2,8 @@
 
 import React, { useState } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
-import '../../styles/auth-modals.css';
+import { useToast } from '../../contexts/ToastContext';
+import '../../styles/modals.css';
 
 interface LoginModalProps {
   isOpen: boolean;
@@ -20,6 +21,7 @@ const LoginModal: React.FC<LoginModalProps> = ({
   onSuccess,
 }) => {
   const { login, isLoading, error, clearError } = useAuth();
+  const { showToast } = useToast();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -43,10 +45,13 @@ const LoginModal: React.FC<LoginModalProps> = ({
     const result = await login({ email, password, rememberMe });
 
     if (result.success) {
-      // Login successful - show success modal
+      // Login successful - show success toast and modal
+      showToast('Welcome back! Login successful', 'success');
       onSuccess();
     } else {
-      setLocalError(result.message || 'Invalid credentials');
+      const errorMsg = result.message || 'Invalid credentials';
+      setLocalError(errorMsg);
+      showToast(errorMsg, 'error');
     }
   };
 
