@@ -12,6 +12,7 @@ import FlipCalculator from './pages/FlipCalculator';
 import Alerts from './pages/Alerts';
 import ImageSearch from './pages/ImageSearch';
 import AIInsights from './pages/AIInsights';
+import Transactions from './pages/Transactions';
 import Sidebar from './components/Sidebar';
 import Topbar from './components/Topbar';
 import './index.css';
@@ -28,7 +29,7 @@ const queryClient = new QueryClient({
   },
 });
 
-type PageType = 'home' | 'whales' | 'dashboard' | 'whale-detail' | 'alerts' | 'image-search' | 'ai-insights' | 'portfolio-analyzer' | 'flip-calculator';
+type PageType = 'home' | 'whales' | 'dashboard' | 'whale-detail' | 'alerts' | 'image-search' | 'ai-insights' | 'portfolio-analyzer' | 'flip-calculator' | 'transactions';
 
 function App() {
   const [currentPage, setCurrentPage] = useState<PageType>('home');
@@ -63,6 +64,7 @@ function App() {
       'ai-insights': 'AI Insights',
       'portfolio-analyzer': 'Portfolio Analyzer',
       'flip-calculator': 'Flip Calculator',
+      'transactions': 'Transactions',
     };
     return titles[page] || 'NFT Tracker';
   };
@@ -102,6 +104,7 @@ function App() {
                 {currentPage === 'ai-insights' && <AIInsights />}
                 {currentPage === 'portfolio-analyzer' && <PortfolioAnalyzer />}
                 {currentPage === 'flip-calculator' && <FlipCalculator onViewNft={handleViewNft} />}
+                {currentPage === 'transactions' && <Transactions />}
               </div>
             </div>
           </div>

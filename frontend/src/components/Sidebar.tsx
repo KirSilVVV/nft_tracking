@@ -3,7 +3,7 @@
 import React from 'react';
 import '../styles/sidebar.css';
 
-type PageType = 'home' | 'whales' | 'dashboard' | 'whale-detail' | 'alerts' | 'image-search' | 'ai-insights' | 'portfolio-analyzer' | 'flip-calculator';
+type PageType = 'home' | 'whales' | 'dashboard' | 'whale-detail' | 'alerts' | 'image-search' | 'ai-insights' | 'portfolio-analyzer' | 'flip-calculator' | 'transactions';
 
 interface SidebarProps {
   currentPage: PageType;
@@ -37,8 +37,8 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, onNavigate }) => {
           <span className="icon">🐋</span> Whales
         </a>
         <a
-          className={`nav-item ${currentPage === 'whale-detail' ? 'active' : ''}`}
-          onClick={() => onNavigate('whales')}
+          className={`nav-item ${currentPage === 'transactions' ? 'active' : ''}`}
+          onClick={() => onNavigate('transactions')}
         >
           <span className="icon">💱</span> Transactions
         </a>
