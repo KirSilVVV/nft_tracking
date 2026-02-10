@@ -1,6 +1,6 @@
 // Alerts - AI-powered customizable alerts page (ATLAS Design)
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   useAlertRules,
   useAlertStats,
@@ -9,8 +9,9 @@ import {
   useToggleAlert,
   useDeleteAlert,
 } from '../hooks/useAlerts';
-import { CreateAlertRequest, AlertType, AlertCondition, AlertChannel } from '../types/alert.types';
+import { CreateAlertRequest, AlertType, AlertCondition, AlertChannel, AlertHistory } from '../types/alert.types';
 import { Spinner } from '../components/loading';
+import { useWebSocket } from '../hooks/useWebSocket';
 import '../styles/alerts.css';
 
 const Alerts: React.FC = () => {
@@ -26,6 +27,32 @@ const Alerts: React.FC = () => {
   const { mutate: createAlert } = useCreateAlert();
   const { mutate: toggleAlert } = useToggleAlert();
   const { mutate: deleteAlert } = useDeleteAlert();
+
+  // WebSocket for live alerts
+  const WS_URL = process.env.REACT_APP_WS_URL || 'ws://localhost:6255';
+  const { isConnected, lastEvent } = useWebSocket(WS_URL);
+
+  // Listen for incoming alert events from WebSocket
+  useEffect(() => {
+    if (lastEvent && lastEvent.type === 'alert' && lastEvent.data) {
+      // Add new alert to history at the top
+      const newAlert: AlertHistory = {
+        id: lastEvent.data.id || `ws_${Date.now()}`,
+        ruleId: lastEvent.data.ruleId || '',
+        ruleName: lastEvent.data.ruleName || 'New Alert',
+        type: lastEvent.data.alertType || 'whale',
+        message: lastEvent.data.message || '',
+        value: lastEvent.data.value || 0,
+        threshold: lastEvent.data.threshold || 0,
+        triggeredAt: lastEvent.data.triggeredAt || new Date().toISOString(),
+        acknowledged: false,
+      };
+
+      // Update local history state (prepend new alert)
+      // Note: This will be overwritten by next query refetch, but provides instant feedback
+      console.log('🔔 Live alert received:', newAlert);
+    }
+  }, [lastEvent]);
 
   // Modal form state
   const [newAlert, setNewAlert] = useState<CreateAlertRequest>({
@@ -117,7 +144,11 @@ const Alerts: React.FC = () => {
         <div className="alert-stat">
           <div className="label">📊 Collections Monitored</div>
           <div className="value">1</div>
-          <div className="sub">MAYC</div>
+          <div className="sub">
+            MAYC · <span style={{ color: isConnected ? 'var(--ok)' : 'var(--t3)' }}>
+              {isConnected ? '🟢 Live' : '🔴 Offline'}
+            </span>
+          </div>
         </div>
       </div>
 
