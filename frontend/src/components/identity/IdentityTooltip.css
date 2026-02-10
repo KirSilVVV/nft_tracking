@@ -1,0 +1,235 @@
+/* IdentityTooltip Styles - ATLAS Design System */
+
+.identity-tooltip {
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  margin-top: 8px;
+  width: 320px;
+  background: var(--card);
+  border: 1px solid var(--border2);
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  padding: 16px;
+  z-index: 1000;
+  animation: tooltip-fade-in 0.2s ease;
+  pointer-events: auto;
+}
+
+.identity-tooltip::before {
+  content: '';
+  position: absolute;
+  top: -6px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 12px;
+  height: 12px;
+  background: var(--card);
+  border: 1px solid var(--border2);
+  border-bottom: none;
+  border-right: none;
+  transform: translateX(-50%) rotate(45deg);
+}
+
+/* Header */
+.identity-tooltip-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border2);
+  margin-bottom: 12px;
+}
+
+.tooltip-avatar {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  border: 2px solid var(--border2);
+  flex-shrink: 0;
+}
+
+.tooltip-header-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.tooltip-name {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-1);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tooltip-ens {
+  font-size: 13px;
+  color: var(--accent);
+  margin-top: 2px;
+}
+
+.tooltip-score {
+  font-size: 18px;
+  font-weight: 700;
+  padding: 6px 12px;
+  background: var(--card-h);
+  border-radius: 8px;
+  flex-shrink: 0;
+}
+
+/* Sections */
+.tooltip-section {
+  margin-bottom: 12px;
+}
+
+.tooltip-section:last-of-type {
+  margin-bottom: 0;
+}
+
+.tooltip-label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: var(--text-3);
+  letter-spacing: 0.5px;
+  margin-bottom: 6px;
+}
+
+.tooltip-value {
+  font-size: 13px;
+  color: var(--text-2);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.tooltip-address {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-1);
+}
+
+.tooltip-copy {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font-size: 14px;
+  padding: 4px;
+  opacity: 0.6;
+  transition: opacity 0.2s;
+}
+
+.tooltip-copy:hover {
+  opacity: 1;
+}
+
+/* Social Links */
+.tooltip-socials {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.tooltip-social-link {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--text-2);
+  text-decoration: none;
+  padding: 6px 8px;
+  border-radius: 6px;
+  transition: all 0.2s;
+}
+
+.tooltip-social-link:hover {
+  background: var(--card-h);
+  color: var(--accent);
+}
+
+/* Labels */
+.tooltip-labels {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.tooltip-label-badge {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  padding: 4px 8px;
+  background: var(--card-h);
+  color: var(--text-2);
+  border-radius: 6px;
+  border: 1px solid var(--border2);
+  letter-spacing: 0.5px;
+}
+
+/* Sources */
+.tooltip-sources {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.tooltip-source-badge {
+  font-size: 10px;
+  font-weight: 600;
+  padding: 3px 6px;
+  background: var(--bg);
+  color: var(--text-3);
+  border-radius: 4px;
+  border: 1px solid var(--border2);
+  letter-spacing: 0.3px;
+}
+
+/* Footer */
+.tooltip-footer {
+  padding-top: 12px;
+  border-top: 1px solid var(--border2);
+  margin-top: 12px;
+  text-align: center;
+}
+
+.tooltip-resolved {
+  font-size: 11px;
+  color: var(--text-3);
+  font-style: italic;
+}
+
+/* Animation */
+@keyframes tooltip-fade-in {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .identity-tooltip {
+    width: 280px;
+    padding: 12px;
+  }
+
+  .tooltip-avatar {
+    width: 40px;
+    height: 40px;
+  }
+
+  .tooltip-name {
+    font-size: 14px;
+  }
+
+  .tooltip-score {
+    font-size: 16px;
+    padding: 4px 10px;
+  }
+}

@@ -1,0 +1,194 @@
+/* WalletIdentityBadge Styles - ATLAS Design System */
+
+.wallet-identity-badge {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px;
+  background: var(--card);
+  border: 1px solid var(--border2);
+  border-radius: 8px;
+  transition: all 0.2s ease;
+  position: relative;
+}
+
+.wallet-identity-badge.clickable {
+  cursor: pointer;
+}
+
+.wallet-identity-badge.clickable:hover {
+  background: var(--card-h);
+  border-color: var(--accent);
+}
+
+/* Modes */
+.wallet-identity-badge-full {
+  min-width: 280px;
+}
+
+.wallet-identity-badge-compact {
+  min-width: 180px;
+  padding: 6px 10px;
+}
+
+.wallet-identity-badge-minimal {
+  min-width: auto;
+  padding: 4px 8px;
+  background: transparent;
+  border: none;
+}
+
+/* Avatar */
+.identity-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  overflow: hidden;
+  border: 2px solid var(--border2);
+}
+
+.wallet-identity-badge-compact .identity-avatar {
+  width: 32px;
+  height: 32px;
+}
+
+.identity-avatar-gradient {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: 600;
+  color: white;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+.identity-avatar-skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--card) 0%,
+    var(--card-h) 50%,
+    var(--card) 100%
+  );
+  background-size: 200% 100%;
+  animation: skeleton-loading 1.5s ease-in-out infinite;
+}
+
+/* Identity Info */
+.identity-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.identity-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-1);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.identity-name-skeleton {
+  width: 120px;
+  height: 16px;
+  background: linear-gradient(
+    90deg,
+    var(--card) 0%,
+    var(--card-h) 50%,
+    var(--card) 100%
+  );
+  background-size: 200% 100%;
+  animation: skeleton-loading 1.5s ease-in-out infinite;
+  border-radius: 4px;
+}
+
+.identity-verified {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  background: var(--ok);
+  color: white;
+  border-radius: 50%;
+  font-size: 10px;
+  flex-shrink: 0;
+}
+
+.identity-secondary {
+  font-size: 12px;
+  color: var(--text-3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.identity-twitter {
+  color: var(--accent);
+}
+
+.identity-address {
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+
+/* Labels */
+.identity-labels {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 4px;
+}
+
+.identity-label {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  padding: 2px 6px;
+  border-radius: 4px;
+  border: 1px solid;
+  white-space: nowrap;
+  letter-spacing: 0.5px;
+}
+
+/* Loading State */
+.wallet-identity-badge-loading {
+  pointer-events: none;
+}
+
+/* Skeleton Animation */
+@keyframes skeleton-loading {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .wallet-identity-badge-full {
+    min-width: auto;
+  }
+
+  .identity-avatar {
+    width: 32px;
+    height: 32px;
+  }
+
+  .identity-name {
+    font-size: 13px;
+  }
+
+  .identity-secondary {
+    font-size: 11px;
+  }
+}

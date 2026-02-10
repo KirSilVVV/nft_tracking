@@ -1,0 +1,102 @@
+/* SocialLinks Styles - ATLAS Design System */
+
+.social-links {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.social-link {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  background: var(--card-h);
+  border: 1px solid var(--border2);
+  color: var(--text-3);
+  transition: all 0.2s ease;
+  text-decoration: none;
+  flex-shrink: 0;
+}
+
+.social-link:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+}
+
+.social-link svg {
+  width: 16px;
+  height: 16px;
+}
+
+/* Size Variants */
+.social-links-small .social-link {
+  width: 24px;
+  height: 24px;
+}
+
+.social-links-small .social-link svg {
+  width: 12px;
+  height: 12px;
+}
+
+.social-links-large .social-link {
+  width: 40px;
+  height: 40px;
+}
+
+.social-links-large .social-link svg {
+  width: 20px;
+  height: 20px;
+}
+
+/* Platform-specific colors */
+.social-link-twitter:hover {
+  background: #1DA1F2;
+  border-color: #1DA1F2;
+  color: white;
+}
+
+.social-link-farcaster:hover {
+  background: #8A63D2;
+  border-color: #8A63D2;
+  color: white;
+}
+
+.social-link-lens:hover {
+  background: #00501E;
+  border-color: #00501E;
+  color: #ABFE2C;
+}
+
+.social-link-website:hover {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: white;
+}
+
+.social-link-etherscan:hover {
+  background: #21325B;
+  border-color: #21325B;
+  color: #68B9FF;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .social-links {
+    gap: 4px;
+  }
+
+  .social-link {
+    width: 28px;
+    height: 28px;
+  }
+
+  .social-link svg {
+    width: 14px;
+    height: 14px;
+  }
+}

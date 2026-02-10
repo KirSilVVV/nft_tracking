@@ -15,6 +15,7 @@ import { getAlchemySDKProvider } from './providers/alchemy-sdk.provider';
 import { logger } from './utils/logger';
 import { sleep } from './utils/helpers';
 import * as authController from './controllers/auth.controller';
+import * as identityController from './controllers/identity.controller';
 
 class App {
   private express: Express;
@@ -595,6 +596,85 @@ class App {
       }
     });
 
+    // ===== FIND OWNER BY IMAGE (Image Search + Owner Lookup) =====
+    this.express.post('/api/nft/find-owner-by-image', upload.single('image'), async (req, res) => {
+      try {
+        if (!req.file) {
+          return res.status(400).json({ error: 'No image file provided' });
+        }
+
+        logger.info(`Find owner by image: ${req.file.size} bytes`);
+
+        // Step 1: Find most similar NFT (high threshold for accuracy)
+        const imageSearchService = getImageSearchService();
+        const results = await imageSearchService.searchByImage(req.file.buffer, 5, 85); // Top 5, 85% threshold
+
+        if (results.length === 0) {
+          return res.status(404).json({
+            error: 'No matching NFT found',
+            message: 'Try uploading a clearer image or lower the threshold'
+          });
+        }
+
+        // Step 2: Get the best match (highest similarity)
+        const bestMatch = results[0];
+        const tokenId = bestMatch.tokenId;
+
+        logger.info(`Best match: Token #${tokenId} with ${bestMatch.similarity.toFixed(2)}% similarity`);
+
+        // Step 3: Get current owner from Alchemy API
+        const { getAlchemySDKProvider } = await import('./providers/alchemy-sdk.provider');
+        const alchemySDK = getAlchemySDKProvider();
+        const MAYC_CONTRACT = '0x60E4d786628Fea6478F785A6d7e704777c86a7c6';
+
+        const owners = await alchemySDK.getOwnersForNft(MAYC_CONTRACT, String(tokenId));
+
+        if (!owners || owners.length === 0) {
+          return res.status(404).json({
+            error: 'No owner found',
+            tokenId,
+            message: 'This token may be burned or not minted yet'
+          });
+        }
+
+        const owner = owners[0];
+
+        // Step 4: Resolve ENS name for owner
+        let ownerENS: string | null = null;
+        try {
+          const ensData = await getENSService().resolveAddress(owner);
+          ownerENS = ensData?.ensName || null;
+        } catch (error) {
+          logger.warn(`Failed to resolve ENS for ${owner}`);
+        }
+
+        // Step 5: Get NFT metadata
+        const metadata = await alchemySDK.getNftMetadata(MAYC_CONTRACT, String(tokenId));
+
+        res.json({
+          success: true,
+          tokenId,
+          name: `Mutant Ape Yacht Club #${tokenId}`,
+          image: metadata.image,
+          similarity: bestMatch.similarity,
+          hammingDistance: bestMatch.hammingDistance,
+          owner: {
+            address: owner,
+            ensName: ownerENS,
+          },
+          message: ownerENS
+            ? `This NFT belongs to ${ownerENS} (${owner})`
+            : `This NFT belongs to ${owner}`,
+          confidence: bestMatch.similarity >= 95 ? 'Very High' : bestMatch.similarity >= 90 ? 'High' : 'Medium',
+          openseaUrl: `https://opensea.io/assets/ethereum/${MAYC_CONTRACT}/${tokenId}`,
+          etherscanUrl: `https://etherscan.io/address/${owner}`,
+        });
+      } catch (error) {
+        logger.error('Find owner by image failed', error);
+        res.status(500).json({ error: 'Failed to find token owner' });
+      }
+    });
+
     // ===== REAL METRICS ENDPOINT WITH ACTUAL BLOCKCHAIN DATA =====
     this.express.get('/api/metrics', async (req, res) => {
       try {
@@ -813,6 +893,15 @@ class App {
     this.express.post('/api/auth/reset-password', authController.resetPassword);
     this.express.post('/api/auth/social', authController.socialAuth);
     this.express.post('/api/auth/logout', authController.logout);
+
+    // ═══════════════════════════════════════════════════════════════════
+    // IDENTITY RESOLUTION ENDPOINTS (Wallet Identity - ENS, Twitter, etc)
+    // ═══════════════════════════════════════════════════════════════════
+    this.express.get('/api/identity/stats', identityController.getStats);
+    this.express.get('/api/identity/search', identityController.searchIdentity);
+    this.express.get('/api/identity/:address', identityController.getIdentity);
+    this.express.post('/api/identity/batch', identityController.batchGetIdentity);
+    this.express.delete('/api/identity/cache', identityController.clearCache);
 
     // Use routes from routes.ts for standard endpoints
     this.express.use('/api', routes);

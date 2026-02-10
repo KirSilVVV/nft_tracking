@@ -2,6 +2,8 @@
 
 import React, { useState } from 'react';
 import { Whale } from '../types/whale.types';
+import { WalletIdentity } from '../types/identity.types';
+import WalletIdentityBadge from './identity/WalletIdentityBadge';
 import '../styles/whale-cards.css';
 
 interface WhaleCardProps {
@@ -13,8 +15,30 @@ interface WhaleCardProps {
 const WhaleCard: React.FC<WhaleCardProps> = ({ whale, onViewActivity, onViewNft }) => {
   const [isExpanded, setIsExpanded] = useState(false);
 
-  const formatAddress = (address: string) => {
-    return `${address.slice(0, 6)}...${address.slice(-4)}`;
+  // Convert Whale data to partial WalletIdentity for badge
+  const getPartialIdentity = (): Partial<WalletIdentity> | null => {
+    if (!whale.ensName && !whale.twitter) {
+      return null; // Let badge fetch identity
+    }
+
+    // Determine labels based on whale NFT count
+    const labels: Array<'whale' | 'mega_whale' | 'known_collector'> = [];
+    if (whale.nftCount >= 100) labels.push('mega_whale');
+    else if (whale.nftCount >= 20) labels.push('whale');
+
+    return {
+      address: whale.address,
+      ensName: whale.ensName || null,
+      ensAvatar: whale.ensAvatar || null,
+      twitter: whale.twitter || null,
+      email: whale.email || null,
+      displayName: whale.ensName || null,
+      labels: labels as any,
+      identityScore: whale.ensName ? 70 : 40,
+      sources: whale.ensName ? ['ens' as const] : [],
+      resolvedAt: new Date().toISOString(),
+      expiresAt: new Date(Date.now() + 30 * 60 * 1000).toISOString(),
+    } as Partial<WalletIdentity>;
   };
 
   // Rank-specific CSS class
@@ -68,26 +92,20 @@ const WhaleCard: React.FC<WhaleCardProps> = ({ whale, onViewActivity, onViewNft 
           #{whale.rank}
         </div>
 
-        {/* Identity */}
-        <div className="whale-identity">
-          <div className="whale-ens">
-            {whale.ensName || '—'}
-            {getWhaleTag() && <span className="whale-tag">{getWhaleTag()}</span>}
-          </div>
-          <div className="whale-address">
-            {formatAddress(whale.address)}
-            <button
-              className="copy-btn"
-              onClick={(e) => {
-                e.stopPropagation();
-                navigator.clipboard.writeText(whale.address);
-              }}
-              title="Copy address"
-            >
-              📋
-            </button>
-          </div>
-          {/* Quick stats removed - blockchain data limited to recent 7 days */}
+        {/* Identity Badge */}
+        <div className="whale-identity" onClick={(e) => e.stopPropagation()}>
+          <WalletIdentityBadge
+            address={whale.address}
+            mode="compact"
+            showSocials={false}
+            showTooltip={true}
+            identity={getPartialIdentity() as WalletIdentity}
+          />
+          {getWhaleTag() && (
+            <span className="whale-tag" style={{ marginLeft: '8px' }}>
+              {getWhaleTag()}
+            </span>
+          )}
         </div>
       </div>
 
