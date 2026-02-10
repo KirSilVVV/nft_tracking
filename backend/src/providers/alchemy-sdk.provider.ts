@@ -177,6 +177,25 @@ export class AlchemySDKProvider {
   }
 
   /**
+   * Get current owners for a specific NFT token
+   */
+  async getOwnersForNft(contractAddress: string, tokenId: string): Promise<string[]> {
+    try {
+      logger.info(`Fetching owners for NFT ${contractAddress} #${tokenId}`);
+
+      const response = await this.alchemy.nft.getOwnersForNft(contractAddress, tokenId);
+
+      const owners = response.owners || [];
+      logger.info(`Found ${owners.length} owner(s) for NFT #${tokenId}`);
+
+      return owners;
+    } catch (error) {
+      logger.error(`Failed to get owners for NFT #${tokenId}`, error);
+      throw error;
+    }
+  }
+
+  /**
    * Get metadata for a specific NFT by contract address and token ID
    */
   async getNftMetadata(contractAddress: string, tokenId: string): Promise<{

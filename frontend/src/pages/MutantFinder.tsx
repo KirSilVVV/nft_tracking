@@ -16,6 +16,18 @@ interface ImageSearchMatch {
   hammingDistance: number;
 }
 
+interface OwnerSearchResult {
+  tokenId: number;
+  name: string;
+  image: string;
+  owner: string;
+  ownerENS: string | null;
+  similarity: number;
+  confidence: string;
+  openSeaUrl: string;
+  etherscanUrl: string;
+}
+
 const MutantFinder: React.FC<MutantFinderProps> = ({ initialTokenId }) => {
   const [inputValue, setInputValue] = useState(initialTokenId?.toString() || '');
   const [searchTokenId, setSearchTokenId] = useState<number | null>(initialTokenId ?? null);
@@ -28,6 +40,11 @@ const MutantFinder: React.FC<MutantFinderProps> = ({ initialTokenId }) => {
   const [imageSearchResults, setImageSearchResults] = useState<ImageSearchMatch[]>([]);
   const [imageSearchLoading, setImageSearchLoading] = useState(false);
   const [imageSearchError, setImageSearchError] = useState<string | null>(null);
+
+  // Owner search state
+  const [ownerSearchResult, setOwnerSearchResult] = useState<OwnerSearchResult | null>(null);
+  const [ownerSearchLoading, setOwnerSearchLoading] = useState(false);
+  const [ownerSearchError, setOwnerSearchError] = useState<string | null>(null);
 
   useEffect(() => {
     if (initialTokenId !== null && initialTokenId !== undefined) {
@@ -131,6 +148,40 @@ const MutantFinder: React.FC<MutantFinderProps> = ({ initialTokenId }) => {
     }
   };
 
+  const handleFindOwner = async () => {
+    if (!uploadedImage) return;
+
+    setOwnerSearchLoading(true);
+    setOwnerSearchError(null);
+    setOwnerSearchResult(null);
+
+    try {
+      const formData = new FormData();
+      formData.append('image', uploadedImage);
+
+      const API_BASE = process.env.REACT_APP_API_URL?.replace('/api/whales', '') || 'http://localhost:6252';
+
+      const timeout = 120000; // 2 minutes
+      const response = await axios.post(`${API_BASE}/api/nft/find-owner-by-image`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+        timeout,
+      });
+
+      setOwnerSearchResult(response.data);
+      setImageSearchResults([]);
+      setSearchTokenId(null);
+    } catch (err: any) {
+      if (err.code === 'ECONNABORTED') {
+        setOwnerSearchError('Search timeout. Please try again.');
+      } else {
+        setOwnerSearchError(err.response?.data?.error || 'Owner search failed. Please try again.');
+      }
+      console.error('Owner search error:', err);
+    } finally {
+      setOwnerSearchLoading(false);
+    }
+  };
+
   const formatAddress = (addr: string) => `${addr.slice(0, 6)}...${addr.slice(-4)}`;
 
   return (
@@ -209,12 +260,13 @@ const MutantFinder: React.FC<MutantFinderProps> = ({ initialTokenId }) => {
                 {imagePreview ? (
                   <div className="space-y-4">
                     <img src={imagePreview} alt="Uploaded" className="max-h-64 mx-auto rounded-lg shadow-md" />
-                    <div className="flex gap-3 justify-center">
+                    <div className="flex gap-3 justify-center flex-wrap">
                       <button
                         onClick={() => {
                           setUploadedImage(null);
                           setImagePreview(null);
                           setImageSearchResults([]);
+                          setOwnerSearchResult(null);
                         }}
                         className="px-4 py-2 bg-gray-500 hover:bg-gray-600 text-white rounded-lg transition-colors"
                       >
@@ -222,10 +274,17 @@ const MutantFinder: React.FC<MutantFinderProps> = ({ initialTokenId }) => {
                       </button>
                       <button
                         onClick={handleImageSearch}
-                        disabled={imageSearchLoading}
+                        disabled={imageSearchLoading || ownerSearchLoading}
                         className="px-6 py-2 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-400 text-white font-medium rounded-lg transition-colors"
                       >
                         {imageSearchLoading ? 'Searching...' : 'Search Similar NFTs'}
+                      </button>
+                      <button
+                        onClick={handleFindOwner}
+                        disabled={imageSearchLoading || ownerSearchLoading}
+                        className="px-6 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white font-medium rounded-lg transition-colors"
+                      >
+                        {ownerSearchLoading ? 'Finding...' : '🔍 Find Exact Owner'}
                       </button>
                     </div>
                   </div>
@@ -254,6 +313,12 @@ const MutantFinder: React.FC<MutantFinderProps> = ({ initialTokenId }) => {
               {imageSearchError && (
                 <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700">
                   {imageSearchError}
+                </div>
+              )}
+
+              {ownerSearchError && (
+                <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700">
+                  {ownerSearchError}
                 </div>
               )}
             </div>
@@ -485,6 +550,102 @@ const MutantFinder: React.FC<MutantFinderProps> = ({ initialTokenId }) => {
             <p className="text-sm text-gray-500">
               ⚡ Subsequent searches will be instant (cached for 24h)
             </p>
+          </div>
+        )}
+
+        {/* Owner Search Loading */}
+        {ownerSearchLoading && (
+          <div className="bg-white rounded-xl shadow-lg p-12 text-center">
+            <div className="animate-spin rounded-full h-16 w-16 border-4 border-blue-600 border-t-transparent mx-auto mb-4"></div>
+            <h3 className="text-xl font-bold text-gray-900 mb-2">Finding Exact Owner...</h3>
+            <p className="text-gray-600 mb-2">Searching blockchain for matching NFT and owner</p>
+            <p className="text-sm text-gray-500">
+              🔍 Step 1: Finding exact token match...
+            </p>
+            <p className="text-sm text-gray-500">
+              🔗 Step 2: Querying blockchain for current owner...
+            </p>
+          </div>
+        )}
+
+        {/* Owner Search Result */}
+        {ownerSearchResult && (
+          <div className="bg-white rounded-xl shadow-lg overflow-hidden">
+            <div className="bg-gradient-to-r from-blue-600 to-blue-700 px-6 py-4">
+              <h2 className="text-2xl font-bold text-white">✅ Exact Match Found!</h2>
+            </div>
+            <div className="p-6">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* Left: NFT Image */}
+                <div>
+                  <img
+                    src={ownerSearchResult.image}
+                    alt={ownerSearchResult.name}
+                    className="w-full rounded-lg shadow-md"
+                  />
+                  <h3 className="text-xl font-bold text-gray-900 mt-4">{ownerSearchResult.name}</h3>
+                  <div className="mt-2 inline-flex items-center gap-2 px-3 py-1 bg-blue-50 border border-blue-200 rounded-lg">
+                    <span className="text-sm text-blue-600 font-medium">Token ID: #{ownerSearchResult.tokenId}</span>
+                  </div>
+                </div>
+
+                {/* Right: Owner Info */}
+                <div className="space-y-4">
+                  {/* Confidence Badge */}
+                  <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                    <div className="text-sm text-green-600 font-medium mb-1">Match Confidence</div>
+                    <div className="text-2xl font-bold text-green-700">{ownerSearchResult.confidence}</div>
+                    <div className="text-sm text-gray-600 mt-1">Similarity: {ownerSearchResult.similarity.toFixed(1)}%</div>
+                  </div>
+
+                  {/* Current Owner */}
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                    <div className="text-sm text-blue-600 font-medium mb-2">Current Owner</div>
+                    {ownerSearchResult.ownerENS ? (
+                      <div>
+                        <div className="text-lg font-bold text-gray-900">{ownerSearchResult.ownerENS}</div>
+                        <div className="text-sm text-gray-500 font-mono mt-1">{formatAddress(ownerSearchResult.owner)}</div>
+                      </div>
+                    ) : (
+                      <div className="text-lg font-mono font-bold text-gray-900 break-all">{ownerSearchResult.owner}</div>
+                    )}
+                  </div>
+
+                  {/* Quick Links */}
+                  <div className="flex gap-3">
+                    <a
+                      href={ownerSearchResult.etherscanUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex-1 px-4 py-3 bg-gray-800 hover:bg-gray-900 text-white text-center font-medium rounded-lg transition-colors"
+                    >
+                      📋 Etherscan
+                    </a>
+                    <a
+                      href={ownerSearchResult.openSeaUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex-1 px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white text-center font-medium rounded-lg transition-colors"
+                    >
+                      🌊 OpenSea
+                    </a>
+                  </div>
+
+                  {/* View Full Details Button */}
+                  <button
+                    onClick={() => {
+                      setSearchTokenId(ownerSearchResult.tokenId);
+                      setSearchMode('id');
+                      setOwnerSearchResult(null);
+                      window.scrollTo({ top: 0, behavior: 'smooth' });
+                    }}
+                    className="w-full px-4 py-3 bg-purple-600 hover:bg-purple-700 text-white font-medium rounded-lg transition-colors"
+                  >
+                    View Full NFT Details
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
         )}
       </div>

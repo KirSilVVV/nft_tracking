@@ -623,7 +623,6 @@ class App {
         logger.info(`Best match: Token #${tokenId} with ${bestMatch.similarity.toFixed(2)}% similarity`);
 
         // Step 3: Get current owner from Alchemy API
-        const { getAlchemySDKProvider } = await import('./providers/alchemy-sdk.provider');
         const alchemySDK = getAlchemySDKProvider();
         const MAYC_CONTRACT = '0x60E4d786628Fea6478F785A6d7e704777c86a7c6';
 
