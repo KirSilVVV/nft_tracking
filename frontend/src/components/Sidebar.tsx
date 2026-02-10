@@ -8,11 +8,21 @@ type PageType = 'home' | 'whales' | 'dashboard' | 'whale-detail' | 'alerts' | 'i
 interface SidebarProps {
   currentPage: PageType;
   onNavigate: (page: PageType) => void;
+  isMobileOpen?: boolean;
+  onMobileClose?: () => void;
 }
 
-const Sidebar: React.FC<SidebarProps> = ({ currentPage, onNavigate }) => {
+const Sidebar: React.FC<SidebarProps> = ({ currentPage, onNavigate, isMobileOpen = false, onMobileClose }) => {
+  const handleNavigation = (page: PageType) => {
+    onNavigate(page);
+    // Close mobile menu after navigation
+    if (onMobileClose) {
+      onMobileClose();
+    }
+  };
+
   return (
-    <aside className="sidebar">
+    <aside className={`sidebar ${isMobileOpen ? 'mobile-open' : ''}`}>
       {/* Logo */}
       <div className="sidebar-logo">
         <div className="sidebar-logo-icon">🐋</div>
@@ -26,19 +36,19 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, onNavigate }) => {
         <div className="sidebar-section">Analytics</div>
         <a
           className={`nav-item ${currentPage === 'dashboard' ? 'active' : ''}`}
-          onClick={() => onNavigate('dashboard')}
+          onClick={() => handleNavigation('dashboard')}
         >
           <span className="icon">📊</span> Dashboard
         </a>
         <a
           className={`nav-item ${currentPage === 'whales' ? 'active' : ''}`}
-          onClick={() => onNavigate('whales')}
+          onClick={() => handleNavigation('whales')}
         >
           <span className="icon">🐋</span> Whales
         </a>
         <a
           className={`nav-item ${currentPage === 'transactions' ? 'active' : ''}`}
-          onClick={() => onNavigate('transactions')}
+          onClick={() => handleNavigation('transactions')}
         >
           <span className="icon">💱</span> Transactions
         </a>
@@ -47,31 +57,31 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, onNavigate }) => {
         <div className="sidebar-section">Tools</div>
         <a
           className={`nav-item ${currentPage === 'alerts' ? 'active' : ''}`}
-          onClick={() => onNavigate('alerts')}
+          onClick={() => handleNavigation('alerts')}
         >
           <span className="icon">🔔</span> Alerts
         </a>
         <a
           className={`nav-item ${currentPage === 'image-search' ? 'active' : ''}`}
-          onClick={() => onNavigate('image-search')}
+          onClick={() => handleNavigation('image-search')}
         >
           <span className="icon">🖼️</span> Image Search
         </a>
         <a
           className={`nav-item ${currentPage === 'ai-insights' ? 'active' : ''}`}
-          onClick={() => onNavigate('ai-insights')}
+          onClick={() => handleNavigation('ai-insights')}
         >
           <span className="icon">🤖</span> AI Insights
         </a>
         <a
           className={`nav-item ${currentPage === 'portfolio-analyzer' ? 'active' : ''}`}
-          onClick={() => onNavigate('portfolio-analyzer')}
+          onClick={() => handleNavigation('portfolio-analyzer')}
         >
           <span className="icon">📈</span> Portfolio Analyzer
         </a>
         <a
           className={`nav-item ${currentPage === 'flip-calculator' ? 'active' : ''}`}
-          onClick={() => onNavigate('flip-calculator')}
+          onClick={() => handleNavigation('flip-calculator')}
         >
           <span className="icon">💰</span> Flip Calculator
         </a>

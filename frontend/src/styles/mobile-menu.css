@@ -1,0 +1,104 @@
+/* Mobile Menu Button & Mobile Navigation Styles (ATLAS Design) */
+
+/* ═══════════════════════════════════════════════════════════════════
+   HAMBURGER MENU BUTTON
+   ═══════════════════════════════════════════════════════════════════ */
+
+.mobile-menu-button {
+  display: none; /* Hidden by default on desktop */
+  position: fixed;
+  top: 16px;
+  left: 16px;
+  z-index: 1100;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  background: var(--card);
+  border: 1px solid var(--border2);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.mobile-menu-button:hover {
+  background: var(--card-h);
+  border-color: var(--gold);
+}
+
+.mobile-menu-button:active {
+  transform: scale(0.95);
+}
+
+/* Hamburger Lines */
+.hamburger-line {
+  display: block;
+  width: 24px;
+  height: 2px;
+  background: var(--t1);
+  border-radius: 2px;
+  transition: all 0.3s ease;
+}
+
+/* Hamburger Animation when Open (X shape) */
+.mobile-menu-button.open .hamburger-line:nth-child(1) {
+  transform: translateY(8px) rotate(45deg);
+}
+
+.mobile-menu-button.open .hamburger-line:nth-child(2) {
+  opacity: 0;
+}
+
+.mobile-menu-button.open .hamburger-line:nth-child(3) {
+  transform: translateY(-8px) rotate(-45deg);
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   MOBILE OVERLAY (BACKDROP)
+   ═══════════════════════════════════════════════════════════════════ */
+
+.mobile-overlay {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 1001;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.mobile-overlay.visible {
+  opacity: 1;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   MOBILE RESPONSIVE BREAKPOINT
+   ═══════════════════════════════════════════════════════════════════ */
+
+@media (max-width: 768px) {
+  /* Show hamburger button on mobile */
+  .mobile-menu-button {
+    display: flex;
+  }
+
+  /* Show overlay when menu is open */
+  .mobile-overlay {
+    display: block;
+  }
+
+  /* Adjust main content margin on mobile (no sidebar offset) */
+  .main {
+    margin-left: 0 !important;
+  }
+
+  /* Adjust topbar padding to accommodate hamburger button */
+  .topbar {
+    padding-left: 72px; /* Space for hamburger button */
+  }
+}

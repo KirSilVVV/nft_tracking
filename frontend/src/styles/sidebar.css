@@ -100,9 +100,17 @@
   color: var(--t3, #5E5E72);
 }
 
-/* Responsive */
+/* Responsive - Mobile */
 @media (max-width: 768px) {
   .sidebar {
-    display: none;
+    /* Hide sidebar off-screen by default */
+    transform: translateX(-100%);
+    transition: transform 0.3s ease;
+    z-index: 1002; /* Above overlay */
+  }
+
+  /* Show sidebar when mobile-open class is added */
+  .sidebar.mobile-open {
+    transform: translateX(0);
   }
 }

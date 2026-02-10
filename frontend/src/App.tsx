@@ -15,8 +15,10 @@ import AIInsights from './pages/AIInsights';
 import Transactions from './pages/Transactions';
 import Sidebar from './components/Sidebar';
 import Topbar from './components/Topbar';
+import MobileMenuButton from './components/MobileMenuButton';
 import './index.css';
 import './styles/loading.css';
+import './styles/mobile-menu.css';
 
 // Create a client
 const queryClient = new QueryClient({
@@ -35,6 +37,7 @@ function App() {
   const [currentPage, setCurrentPage] = useState<PageType>('home');
   const [selectedWhaleAddress, setSelectedWhaleAddress] = useState<string>('');
   const [selectedTokenId, setSelectedTokenId] = useState<number | null>(null);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState<boolean>(false);
 
   const handleViewActivity = (address: string) => {
     setSelectedWhaleAddress(address);
@@ -78,8 +81,25 @@ function App() {
             <Homepage onNavigate={handleNavigate} />
           ) : (
           <div style={{ display: 'flex', minHeight: '100vh' }}>
+            {/* Mobile Menu Button (visible only on mobile) */}
+            <MobileMenuButton
+              isOpen={isMobileMenuOpen}
+              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+            />
+
+            {/* Mobile Overlay (backdrop when menu is open) */}
+            <div
+              className={`mobile-overlay ${isMobileMenuOpen ? 'visible' : ''}`}
+              onClick={() => setIsMobileMenuOpen(false)}
+            ></div>
+
             {/* Sidebar - fixed left navigation */}
-            <Sidebar currentPage={currentPage} onNavigate={handleNavigate} />
+            <Sidebar
+              currentPage={currentPage}
+              onNavigate={handleNavigate}
+              isMobileOpen={isMobileMenuOpen}
+              onMobileClose={() => setIsMobileMenuOpen(false)}
+            />
 
             {/* Main content area */}
             <div className="main" style={{ flex: 1, marginLeft: '240px' }}>
