@@ -79,6 +79,14 @@ export const whaleAPI = {
   },
 
   /**
+   * Get wallet portfolio (NFT holdings by collection)
+   */
+  getPortfolio: async (address: string): Promise<any> => {
+    const response = await apiClient.get(`/portfolio/${address}`, { timeout: 60000 });
+    return response.data;
+  },
+
+  /**
    * Search NFT by image (AI visual search)
    */
   searchByImage: async (image: File, limit: number = 10, threshold: number = 70): Promise<{

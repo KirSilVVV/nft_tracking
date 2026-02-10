@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useWhaleEnriched } from '../hooks/useWhales';
+import { useToast } from '../contexts/ToastContext';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
 import { Spinner } from '../components/loading';
 
@@ -8,12 +9,28 @@ const PortfolioAnalyzer: React.FC = () => {
   const [searchAddress, setSearchAddress] = useState<string | null>(null);
 
   const { data, isLoading, isError, error } = useWhaleEnriched(searchAddress || '');
+  const { showToast } = useToast();
+
+  // Show toast on error
+  useEffect(() => {
+    if (isError && searchAddress) {
+      const errorMsg = error instanceof Error ? error.message : 'Failed to load portfolio';
+      showToast(errorMsg, 'error');
+    }
+  }, [isError, error, searchAddress, showToast]);
+
+  // Show toast on success
+  useEffect(() => {
+    if (data && searchAddress) {
+      showToast('Portfolio loaded successfully', 'success');
+    }
+  }, [data, searchAddress, showToast]);
 
   const handleSearch = () => {
     if (inputAddress.match(/^0x[a-fA-F0-9]{40}$/i)) {
       setSearchAddress(inputAddress);
     } else {
-      alert('Invalid Ethereum address. Please enter a valid 0x... address.');
+      showToast('Invalid Ethereum address. Please enter a valid 0x... address.', 'warning');
     }
   };
 
@@ -24,8 +41,9 @@ const PortfolioAnalyzer: React.FC = () => {
 
   const formatAddress = (addr: string) => `${addr.slice(0, 6)}...${addr.slice(-4)}`;
 
-  // Sample addresses for quick testing
+  // Sample addresses for quick testing (including Beanie from task)
   const sampleAddresses = [
+    { label: '🎯 Beanie', address: '0x020cA66C30beC2c4Fe3861a94E4DB4A498A35872' },
     { label: 'Top MAYC Whale', address: '0x33a9a08354d4964ffcea90686f2999b02b2f81a6' },
     { label: 'Vitalik.eth', address: '0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045' },
   ];
