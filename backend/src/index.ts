@@ -799,7 +799,7 @@ class App {
               timestamp: typeof event.timestamp === 'number' ? event.timestamp : Math.floor(new Date(event.timestamp).getTime() / 1000),
               txHash: event.transactionHash || event.txHash || undefined,
               type: event.type || 'transfer',
-              priceETH: priceMap.get(tokenId) || undefined,
+              priceETH: priceMap.get(tokenId) || event.priceETH || undefined,  // Try OpenSea first, fallback to blockchain tx.value
               isWhaleTransaction: isWhaleFrom || isWhaleTo,
               whaleFrom: isWhaleFrom,
               whaleTo: isWhaleTo,
