@@ -1024,6 +1024,23 @@ class App {
    */
   private async startBlockchainMonitoring(): Promise<void> {
     try {
+      logger.info('🚀 Starting blockchain monitoring with new BlockchainMonitorService...');
+
+      // Import and start the new blockchain monitor
+      const { getBlockchainMonitor } = await import('./services/blockchain-monitor.service');
+      const monitor = getBlockchainMonitor();
+      await monitor.start();
+
+      logger.info('✅ Blockchain monitoring started successfully');
+    } catch (error) {
+      logger.error('Failed to start blockchain monitoring', error);
+      // Don't exit - server can still run without monitoring
+    }
+  }
+
+  // DEPRECATED: Old monitoring code below (kept for reference)
+  private async startBlockchainMonitoringOLD(): Promise<void> {
+    try {
       const blockchainService = getBlockchainService();
       const analyticsService = getAnalyticsService();
       const cacheService = getCacheService();

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useToast } from '../contexts/ToastContext';
 import { Spinner } from '../components/loading';
+import { useWebSocket } from '../hooks/useWebSocket';
 import '../styles/transactions.css';
 
 interface Transaction {
@@ -29,9 +30,39 @@ const Transactions: React.FC = () => {
   const [filter, setFilter] = useState<'all' | 'sale' | 'transfer' | 'mint'>('all');
   const { showToast } = useToast();
 
+  // WebSocket for real-time updates
+  const WS_URL = process.env.REACT_APP_WS_URL || 'ws://localhost:6255';
+  const { isConnected, lastEvent } = useWebSocket(WS_URL);
+
   useEffect(() => {
     fetchTransactions();
   }, []);
+
+  // Listen for new transaction events from WebSocket
+  useEffect(() => {
+    if (lastEvent && lastEvent.type === 'transaction:new' && lastEvent.data) {
+      const newTx: Transaction = {
+        tokenId: lastEvent.data.tokenId,
+        from: lastEvent.data.from,
+        to: lastEvent.data.to,
+        timestamp: lastEvent.data.timestamp,
+        txHash: lastEvent.data.txHash,
+        type: lastEvent.data.type || 'transfer',
+        priceETH: lastEvent.data.priceETH,
+        isWhaleTransaction: lastEvent.data.isWhaleTransaction,
+        whaleFrom: lastEvent.data.whaleFrom,
+        whaleTo: lastEvent.data.whaleTo,
+      };
+
+      // Add new transaction to top of list
+      setTransactions(prev => [newTx, ...prev]);
+
+      // Show toast for whale transactions
+      if (newTx.isWhaleTransaction) {
+        showToast(`🐋 Whale transaction! Token #${newTx.tokenId}`, 'info', 5000);
+      }
+    }
+  }, [lastEvent, showToast]);
 
   const fetchTransactions = async () => {
     try {
@@ -59,7 +90,12 @@ const Transactions: React.FC = () => {
       {/* Header */}
       <div className="page-header">
         <h1 className="page-title">🔄 Transactions</h1>
-        <p className="page-subtitle">Recent MAYC Transfer events on Ethereum · 🐋 Whale = 20+ NFTs holder</p>
+        <p className="page-subtitle">
+          Recent MAYC Transfer events on Ethereum · 🐋 Whale = 20+ NFTs holder ·
+          <span style={{ color: isConnected ? 'var(--ok)' : 'var(--t3)', marginLeft: '8px' }}>
+            {isConnected ? '🟢 Live' : '🔴 Connecting...'}
+          </span>
+        </p>
       </div>
 
       {/* Filter Chips */}
