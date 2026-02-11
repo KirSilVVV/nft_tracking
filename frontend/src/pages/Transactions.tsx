@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import apiClient from '../services/api';
 import { useToast } from '../contexts/ToastContext';
 import { Spinner } from '../components/loading';
 import '../styles/transactions.css';
@@ -108,9 +107,7 @@ const Transactions: React.FC = () => {
             <div className="table-header">
               <span>Type</span>
               <span>Token ID</span>
-              <span>From</span>
-              <span className="arrow-col"></span>
-              <span>To</span>
+              <span className="transfer-col">Transfer</span>
               <span>Price</span>
               <span>Time</span>
               <span>TX</span>
@@ -151,13 +148,15 @@ const TransactionRow: React.FC<{ tx: Transaction }> = ({ tx }) => {
     <div className="tx-row">
       <span className={`tx-type-badge ${type}`}>{type}</span>
       <span className="tx-token-id">#{tx.tokenId}</span>
-      <span className="tx-address" title={tx.from}>
-        {shortenAddress(tx.from)}
-      </span>
-      <span className="tx-arrow">→</span>
-      <span className="tx-address" title={tx.to}>
-        {shortenAddress(tx.to)}
-      </span>
+      <div className="tx-transfer">
+        <span className="tx-address" title={tx.from}>
+          {shortenAddress(tx.from)}
+        </span>
+        <span className="tx-arrow">→</span>
+        <span className="tx-address" title={tx.to}>
+          {shortenAddress(tx.to)}
+        </span>
+      </div>
       <span className="tx-price">
         {tx.priceETH ? `${tx.priceETH.toFixed(3)} ETH` : '—'}
       </span>

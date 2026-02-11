@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider } from './contexts/AuthContext';
 import { ToastProvider } from './contexts/ToastContext';
@@ -6,9 +6,6 @@ import Homepage from './pages/Homepage';
 import WhaleList from './components/WhaleList';
 import Dashboard from './pages/Dashboard';
 import WhaleDetail from './pages/WhaleDetail';
-import MutantFinder from './pages/MutantFinder';
-import PortfolioAnalyzer from './pages/PortfolioAnalyzer';
-import FlipCalculator from './pages/FlipCalculator';
 import Alerts from './pages/Alerts';
 import ImageSearch from './pages/ImageSearch';
 import AIInsights from './pages/AIInsights';
@@ -31,7 +28,7 @@ const queryClient = new QueryClient({
   },
 });
 
-type PageType = 'home' | 'whales' | 'dashboard' | 'whale-detail' | 'alerts' | 'image-search' | 'ai-insights' | 'portfolio-analyzer' | 'flip-calculator' | 'transactions';
+type PageType = 'home' | 'whales' | 'dashboard' | 'whale-detail' | 'alerts' | 'image-search' | 'ai-insights' | 'transactions';
 
 function App() {
   const [currentPage, setCurrentPage] = useState<PageType>('home');
@@ -39,18 +36,50 @@ function App() {
   const [selectedTokenId, setSelectedTokenId] = useState<number | null>(null);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState<boolean>(false);
 
+  // Initialize page from hash on mount
+  useEffect(() => {
+    const hash = window.location.hash.slice(1); // Remove '#'
+    const validPages: PageType[] = ['home', 'whales', 'dashboard', 'whale-detail', 'alerts', 'image-search', 'ai-insights', 'transactions'];
+
+    if (hash && validPages.includes(hash as PageType)) {
+      setCurrentPage(hash as PageType);
+    } else if (hash === '' || hash === '/') {
+      setCurrentPage('home');
+    }
+  }, []);
+
+  // Listen to hash changes (browser back/forward)
+  useEffect(() => {
+    const handleHashChange = () => {
+      const hash = window.location.hash.slice(1);
+      const validPages: PageType[] = ['home', 'whales', 'dashboard', 'whale-detail', 'alerts', 'image-search', 'ai-insights', 'transactions'];
+
+      if (hash && validPages.includes(hash as PageType)) {
+        setCurrentPage(hash as PageType);
+      } else if (hash === '' || hash === '/') {
+        setCurrentPage('home');
+      }
+    };
+
+    window.addEventListener('hashchange', handleHashChange);
+    return () => window.removeEventListener('hashchange', handleHashChange);
+  }, []);
+
   const handleViewActivity = (address: string) => {
     setSelectedWhaleAddress(address);
     setCurrentPage('whale-detail');
+    window.location.hash = 'whale-detail';
   };
 
   const handleViewNft = (tokenId: number) => {
     setSelectedTokenId(tokenId);
     setCurrentPage('image-search');
+    window.location.hash = 'image-search';
   };
 
   const handleNavigate = (page: PageType) => {
     setCurrentPage(page);
+    window.location.hash = page;
     if (page !== 'whale-detail') setSelectedWhaleAddress('');
     if (page !== 'image-search') setSelectedTokenId(null);
   };
@@ -65,8 +94,6 @@ function App() {
       'alerts': 'AI Alerts',
       'image-search': 'Image Search',
       'ai-insights': 'AI Insights',
-      'portfolio-analyzer': 'Portfolio Analyzer',
-      'flip-calculator': 'Flip Calculator',
       'transactions': 'Transactions',
     };
     return titles[page] || 'NFT Tracker';
@@ -122,8 +149,6 @@ function App() {
                 {currentPage === 'alerts' && <Alerts />}
                 {currentPage === 'image-search' && <ImageSearch />}
                 {currentPage === 'ai-insights' && <AIInsights />}
-                {currentPage === 'portfolio-analyzer' && <PortfolioAnalyzer />}
-                {currentPage === 'flip-calculator' && <FlipCalculator onViewNft={handleViewNft} />}
                 {currentPage === 'transactions' && <Transactions />}
               </div>
             </div>

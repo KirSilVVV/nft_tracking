@@ -3,7 +3,7 @@
 import React from 'react';
 import '../styles/sidebar.css';
 
-type PageType = 'home' | 'whales' | 'dashboard' | 'whale-detail' | 'alerts' | 'image-search' | 'ai-insights' | 'portfolio-analyzer' | 'flip-calculator' | 'transactions';
+type PageType = 'home' | 'whales' | 'dashboard' | 'whale-detail' | 'alerts' | 'image-search' | 'ai-insights' | 'transactions';
 
 interface SidebarProps {
   currentPage: PageType;
@@ -72,18 +72,6 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, onNavigate, isMobileOpen
           onClick={() => handleNavigation('ai-insights')}
         >
           <span className="icon">🤖</span> AI Insights
-        </a>
-        <a
-          className={`nav-item ${currentPage === 'portfolio-analyzer' ? 'active' : ''}`}
-          onClick={() => handleNavigation('portfolio-analyzer')}
-        >
-          <span className="icon">📈</span> Portfolio Analyzer
-        </a>
-        <a
-          className={`nav-item ${currentPage === 'flip-calculator' ? 'active' : ''}`}
-          onClick={() => handleNavigation('flip-calculator')}
-        >
-          <span className="icon">💰</span> Flip Calculator
         </a>
       </nav>
     </aside>
