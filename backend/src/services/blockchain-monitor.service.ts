@@ -16,7 +16,9 @@ export class BlockchainMonitorService {
   private lastProcessedBlock = 0;
   private monitorInterval: NodeJS.Timeout | null = null;
   private readonly POLL_INTERVAL_MS = 12000; // 12 seconds (Ethereum block time ~12s)
+  private readonly PRICE_CHECK_INTERVAL_MS = 300000; // 5 minutes for floor price checks
   private readonly CONTRACT_ADDRESS = process.env.NFT_CONTRACT_ADDRESS || '0x60E4d786628Fea6478F785A6d7e704777c86a7c6';
+  private priceCheckInterval: NodeJS.Timeout | null = null;
 
   private constructor() {
     logger.info('BlockchainMonitorService initialized');
@@ -46,8 +48,14 @@ export class BlockchainMonitorService {
     this.lastProcessedBlock = await alchemyProvider.getBlockNumber();
     logger.info(`Starting from block ${this.lastProcessedBlock}`);
 
-    // Start polling loop
+    // Start polling loop for new blocks
     this.monitorInterval = setInterval(() => this.checkNewBlocks(), this.POLL_INTERVAL_MS);
+
+    // Start periodic floor price checking for price alerts
+    this.priceCheckInterval = setInterval(() => this.checkFloorPrice(), this.PRICE_CHECK_INTERVAL_MS);
+
+    // Run initial floor price check
+    this.checkFloorPrice();
 
     logger.info(`✅ Blockchain monitor started (polling every ${this.POLL_INTERVAL_MS}ms)`);
   }
@@ -66,6 +74,11 @@ export class BlockchainMonitorService {
     if (this.monitorInterval) {
       clearInterval(this.monitorInterval);
       this.monitorInterval = null;
+    }
+
+    if (this.priceCheckInterval) {
+      clearInterval(this.priceCheckInterval);
+      this.priceCheckInterval = null;
     }
 
     logger.info('✅ Blockchain monitor stopped');
@@ -121,6 +134,12 @@ export class BlockchainMonitorService {
     const whaleHolders = analyticsService.getTopHolders(allHolders, 9999).filter((h: any) => h.count >= 20);
     const whaleAddresses = new Set(whaleHolders.map((w: any) => w.address.toLowerCase()));
 
+    // Track whale activity count for this batch
+    let whaleActivityCount = 0;
+
+    // Track volume for this batch
+    let totalVolume = 0;
+
     for (const event of events) {
       const fromAddress = event.from.toLowerCase();
       const toAddress = event.to.toLowerCase();
@@ -148,19 +167,100 @@ export class BlockchainMonitorService {
         timestamp: Date.now(),
       });
 
-      // Check alert rules for whale activity
+      // Track whale activity
       if (enrichedTransaction.isWhaleTransaction) {
+        whaleActivityCount++;
         logger.info(`🐋 Whale transaction detected: Token #${enrichedTransaction.tokenId}`);
-
-        // Trigger whale activity alerts
-        // Note: This is a simplified check. Real implementation would be more sophisticated.
-        alertService.checkTrigger('whale_activity', 1); // Increment whale activity counter
       }
 
-      // Check price alerts if sale
+      // Track volume for sales
       if (enrichedTransaction.type === 'sale' && enrichedTransaction.priceETH) {
-        alertService.checkTrigger('price_change', enrichedTransaction.priceETH);
+        totalVolume += enrichedTransaction.priceETH;
       }
+    }
+
+    // Check all active alert rules after processing batch
+    this.checkAllAlerts(alertService, {
+      whaleActivityCount,
+      totalVolume,
+      transactionCount: events.length,
+    });
+  }
+
+  /**
+   * Check all active alert rules against current metrics
+   */
+  private checkAllAlerts(alertService: any, metrics: {
+    whaleActivityCount: number;
+    totalVolume: number;
+    transactionCount: number;
+  }): void {
+    const allRules = alertService.getAllRules();
+
+    for (const rule of allRules) {
+      if (rule.status !== 'active') continue;
+
+      let currentValue: number | null = null;
+
+      // Determine current value based on alert type
+      switch (rule.type) {
+        case 'whale':
+          // Whale activity count
+          currentValue = metrics.whaleActivityCount;
+          break;
+        case 'volume':
+          // Total volume in ETH
+          currentValue = metrics.totalVolume;
+          break;
+        case 'listing':
+          // Number of new listings/transfers
+          currentValue = metrics.transactionCount;
+          break;
+        case 'price':
+          // Price alerts are checked separately via floor price updates
+          // Skip for now - can be enhanced to fetch floor price from Alchemy
+          break;
+        default:
+          logger.warn(`Unknown alert type: ${rule.type}`);
+      }
+
+      // Check trigger if we have a value
+      if (currentValue !== null) {
+        alertService.checkTrigger(rule.id, currentValue);
+      }
+    }
+  }
+
+  /**
+   * Check floor price and trigger price alerts
+   */
+  private async checkFloorPrice(): Promise<void> {
+    if (!this.isMonitoring) return;
+
+    try {
+      const { getAlchemySDKProvider } = await import('../providers/alchemy-sdk.provider');
+      const alchemySDK = getAlchemySDKProvider();
+      const alertService = getAlertService();
+
+      // Get floor price from Alchemy (returns number or null)
+      const currentFloorPrice = await alchemySDK.getFloorPrice(this.CONTRACT_ADDRESS);
+
+      if (!currentFloorPrice) {
+        logger.debug('No floor price data available');
+        return;
+      }
+
+      logger.debug(`Checking price alerts - Current floor price: ${currentFloorPrice} ETH`);
+
+      // Check all price alert rules
+      const allRules = alertService.getAllRules();
+      for (const rule of allRules) {
+        if (rule.status === 'active' && rule.type === 'price') {
+          alertService.checkTrigger(rule.id, currentFloorPrice);
+        }
+      }
+    } catch (error) {
+      logger.error('Error checking floor price', error);
     }
   }
 
@@ -172,6 +272,7 @@ export class BlockchainMonitorService {
       isMonitoring: this.isMonitoring,
       lastProcessedBlock: this.lastProcessedBlock,
       pollIntervalMs: this.POLL_INTERVAL_MS,
+      priceCheckIntervalMs: this.PRICE_CHECK_INTERVAL_MS,
     };
   }
 }
