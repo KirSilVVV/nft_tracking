@@ -11,6 +11,9 @@ interface Transaction {
   txHash: string;
   type: 'transfer' | 'sale' | 'mint';
   priceETH?: number;
+  isWhaleTransaction?: boolean;
+  whaleFrom?: boolean;
+  whaleTo?: boolean;
 }
 
 interface TransactionsResponse {
@@ -56,7 +59,7 @@ const Transactions: React.FC = () => {
       {/* Header */}
       <div className="page-header">
         <h1 className="page-title">🔄 Transactions</h1>
-        <p className="page-subtitle">Recent MAYC Transfer events on Ethereum</p>
+        <p className="page-subtitle">Recent MAYC Transfer events on Ethereum · 🐋 Whale = 20+ NFTs holder</p>
       </div>
 
       {/* Filter Chips */}
@@ -146,16 +149,19 @@ const TransactionRow: React.FC<{ tx: Transaction }> = ({ tx }) => {
   const type = getTransactionType(tx);
 
   return (
-    <div className="tx-row">
+    <div className={`tx-row ${tx.isWhaleTransaction ? 'whale-tx' : ''}`}>
       <div className="tx-cell">
         <span className={`tx-type-badge ${type}`}>{type}</span>
+        {tx.isWhaleTransaction && <span className="whale-badge" title="Whale transaction (20+ NFTs)">🐋</span>}
       </div>
       <div className="tx-cell tx-token-id">#{tx.tokenId}</div>
       <div className="tx-cell tx-address" title={tx.from}>
         {shortenAddress(tx.from)}
+        {tx.whaleFrom && <span className="whale-indicator" title="Whale holder">🐋</span>}
       </div>
       <div className="tx-cell tx-address" title={tx.to}>
         {shortenAddress(tx.to)}
+        {tx.whaleTo && <span className="whale-indicator" title="Whale holder">🐋</span>}
       </div>
       <div className="tx-cell tx-price">
         {tx.priceETH ? `${tx.priceETH.toFixed(3)} ETH` : '—'}

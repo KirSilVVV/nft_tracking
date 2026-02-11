@@ -176,6 +176,28 @@
   border-bottom: none;
 }
 
+/* Whale transaction highlighting */
+.tx-row.whale-tx {
+  background: rgba(245, 166, 35, 0.08);
+  border-left: 3px solid var(--gold);
+}
+
+.tx-row.whale-tx:hover {
+  background: rgba(245, 166, 35, 0.12);
+}
+
+.whale-badge {
+  font-size: 14px;
+  margin-left: 6px;
+  opacity: 0.8;
+}
+
+.whale-indicator {
+  font-size: 11px;
+  margin-left: 4px;
+  opacity: 0.7;
+}
+
 .tx-cell {
   display: flex;
   align-items: center;

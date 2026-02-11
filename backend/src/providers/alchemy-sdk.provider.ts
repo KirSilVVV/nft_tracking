@@ -399,6 +399,72 @@ export class AlchemySDKProvider {
   }
 
   /**
+   * Get NFT sales events from OpenSea API
+   * Returns recent sales with prices for the MAYC collection
+   */
+  async getRecentSales(contractAddress: string, limit: number = 50): Promise<Array<{
+    tokenId: string;
+    priceETH: number;
+    from: string;
+    to: string;
+    txHash: string;
+    timestamp: number;
+  }>> {
+    try {
+      logger.info(`Fetching recent sales from OpenSea for ${contractAddress}`);
+
+      // OpenSea API v2 endpoint for NFT events
+      const apiKey = process.env.OPENSEA_API_KEY;
+      if (!apiKey) {
+        logger.warn('OPENSEA_API_KEY not found, returning empty sales');
+        return [];
+      }
+
+      const response = await fetch(
+        `https://api.opensea.io/api/v2/events/chain/ethereum/contract/${contractAddress}?event_type=sale&limit=${limit}`,
+        {
+          method: 'GET',
+          headers: {
+            'Accept': 'application/json',
+            'X-API-KEY': apiKey,
+          },
+        }
+      );
+
+      if (!response.ok) {
+        logger.warn(`OpenSea events API returned status ${response.status}`);
+        return [];
+      }
+
+      const data = await response.json() as any;
+      const events = data.asset_events || [];
+
+      logger.info(`OpenSea returned ${events.length} sale events`);
+
+      // Map OpenSea events to our format
+      const sales = events.map((event: any) => {
+        const payment = event.payment || {};
+        const priceWei = payment.quantity || '0';
+        const priceETH = parseFloat(priceWei) / 1e18; // Convert Wei to ETH
+
+        return {
+          tokenId: event.nft?.identifier || '0',
+          priceETH: priceETH,
+          from: event.seller || event.from_account?.address || '',
+          to: event.winner_account?.address || event.to_account?.address || '',
+          txHash: event.transaction || '',
+          timestamp: event.event_timestamp ? new Date(event.event_timestamp).getTime() / 1000 : 0,
+        };
+      });
+
+      return sales.filter(sale => sale.tokenId !== '0');
+    } catch (error) {
+      logger.error('Error fetching OpenSea sales events', error);
+      return [];
+    }
+  }
+
+  /**
    * Helper: split array into chunks
    */
   private chunkArray<T>(array: T[], size: number): T[][] {

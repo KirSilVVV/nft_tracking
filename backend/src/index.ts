@@ -743,17 +743,33 @@ class App {
       }
     });
 
-    // ===== RECENT TRANSACTIONS ENDPOINT (REAL BLOCKCHAIN DATA) =====
+    // ===== RECENT TRANSACTIONS ENDPOINT (REAL BLOCKCHAIN DATA + OPENSEA PRICES) =====
     this.express.get('/api/transactions/recent', async (req, res) => {
       try {
         const hours = parseInt(req.query.hours as string) || 24;
-        const limit = parseInt(req.query.limit as string) || 20;
+        const limit = parseInt(req.query.limit as string) || 100;
 
         logger.info(`📋 Fetching recent transactions for last ${hours}h, limit ${limit}`);
 
         // Fetch REAL transfer events from blockchain
         const allEvents = await blockchainService.getAllTransferEvents(0);
         logger.info(`✅ Got ${allEvents.length} real transfer events`);
+
+        // Fetch OpenSea sales events for price enrichment
+        const contractAddress = process.env.NFT_CONTRACT_ADDRESS || '';
+        const sales = await alchemySDK.getRecentSales(contractAddress, 300);
+        logger.info(`✅ Got ${sales.length} OpenSea sales events`);
+
+        // Create price lookup map by tokenId
+        const priceMap = new Map<string, number>();
+        sales.forEach(sale => {
+          priceMap.set(sale.tokenId, sale.priceETH);
+        });
+
+        // Get whale addresses (20+ NFTs threshold)
+        const whaleHolders = whaleAnalyzer.getTopHolders(9999).filter(h => h.nftCount >= 20);
+        const whaleAddresses = new Set(whaleHolders.map(w => w.address.toLowerCase()));
+        logger.info(`✅ Identified ${whaleAddresses.size} whale addresses (20+ NFTs)`);
 
         // Filter events within time window
         const now = Math.floor(Date.now() / 1000);
@@ -765,28 +781,42 @@ class App {
 
         logger.info(`✅ ${eventsInWindow.length} transactions within ${hours}h window`);
 
-        // Convert events to transaction format, sort newest-first, limit results
+        // Convert events to transaction format with price enrichment and whale detection
         const allTransactions = eventsInWindow
-          .map((event: any) => ({
-            tokenId: event.tokenId,
-            from: event.from,
-            to: event.to,
-            timestamp: typeof event.timestamp === 'number' ? event.timestamp : Math.floor(new Date(event.timestamp).getTime() / 1000),
-            txHash: event.transactionHash || event.txHash || undefined,
-            type: event.type || 'transfer',
-            priceETH: event.priceETH || undefined,
-          }))
+          .map((event: any) => {
+            const tokenId = event.tokenId.toString();
+            const fromAddress = event.from.toLowerCase();
+            const toAddress = event.to.toLowerCase();
+            const isWhaleFrom = whaleAddresses.has(fromAddress);
+            const isWhaleTo = whaleAddresses.has(toAddress);
+
+            return {
+              tokenId: event.tokenId,
+              from: event.from,
+              to: event.to,
+              timestamp: typeof event.timestamp === 'number' ? event.timestamp : Math.floor(new Date(event.timestamp).getTime() / 1000),
+              txHash: event.transactionHash || event.txHash || undefined,
+              type: event.type || 'transfer',
+              priceETH: priceMap.get(tokenId) || undefined,
+              isWhaleTransaction: isWhaleFrom || isWhaleTo,
+              whaleFrom: isWhaleFrom,
+              whaleTo: isWhaleTo,
+            };
+          })
           .sort((a: any, b: any) => b.timestamp - a.timestamp);  // newest first
 
         const transactions = allTransactions.slice(0, limit);
 
+        const whaleTransactionCount = transactions.filter((t: any) => t.isWhaleTransaction).length;
+
         res.json({
           count: transactions.length,
-          totalInWindow: allTransactions.length,  // total matching events in time window
+          totalInWindow: allTransactions.length,
+          whaleTransactionCount,
           limit,
           hours,
           transactions,
-          _source: 'real_blockchain_data',
+          _source: 'blockchain_data_with_opensea_prices',
           lastUpdated: new Date(),
         });
       } catch (error) {
