@@ -9,6 +9,7 @@ import { getAlchemyProvider } from '../providers/alchemy.provider';
 import { getWebSocketService } from '../api/websocket';
 import { getAlertService } from './alert.service';
 import { getAnalyticsService } from './analytics.service';
+import { getNotificationService } from './notification.service';
 
 export class BlockchainMonitorService {
   private static instance: BlockchainMonitorService;
@@ -18,6 +19,7 @@ export class BlockchainMonitorService {
   private readonly POLL_INTERVAL_MS = 12000; // 12 seconds (Ethereum block time ~12s)
   private readonly PRICE_CHECK_INTERVAL_MS = 300000; // 5 minutes for floor price checks
   private readonly CONTRACT_ADDRESS = process.env.NFT_CONTRACT_ADDRESS || '0x60E4d786628Fea6478F785A6d7e704777c86a7c6';
+  private readonly NOTIFY_ALL_TRANSACTIONS = process.env.NOTIFY_ALL_TRANSACTIONS === 'true';
   private priceCheckInterval: NodeJS.Timeout | null = null;
 
   private constructor() {
@@ -167,6 +169,11 @@ export class BlockchainMonitorService {
         timestamp: Date.now(),
       });
 
+      // Send Telegram/Email notification for EVERY transaction (if NOTIFY_ALL_TRANSACTIONS=true)
+      if (this.NOTIFY_ALL_TRANSACTIONS) {
+        await this.sendTransactionNotification(enrichedTransaction);
+      }
+
       // Track whale activity
       if (enrichedTransaction.isWhaleTransaction) {
         whaleActivityCount++;
@@ -265,6 +272,39 @@ export class BlockchainMonitorService {
   }
 
   /**
+   * Send Telegram/Email notification for individual transaction
+   */
+  private async sendTransactionNotification(tx: any): Promise<void> {
+    try {
+      const notificationService = getNotificationService();
+
+      // Format transaction message
+      const emoji = tx.isWhaleTransaction ? '🐋' : (tx.type === 'sale' ? '💰' : '🔄');
+      const whaleTag = tx.isWhaleTransaction ? ' [WHALE]' : '';
+      const priceInfo = tx.priceETH ? ` for ${tx.priceETH.toFixed(4)} ETH` : '';
+
+      const message = `
+${emoji} <b>MAYC Transaction${whaleTag}</b>
+
+🎨 <b>Token:</b> #${tx.tokenId}
+📝 <b>Type:</b> ${tx.type.toUpperCase()}${priceInfo}
+📤 <b>From:</b> <code>${tx.from.slice(0, 10)}...${tx.from.slice(-8)}</code>${tx.whaleFrom ? ' 🐋' : ''}
+📥 <b>To:</b> <code>${tx.to.slice(0, 10)}...${tx.to.slice(-8)}</code>${tx.whaleTo ? ' 🐋' : ''}
+🔗 <b>TX:</b> <a href="https://etherscan.io/tx/${tx.txHash}">View on Etherscan</a>
+
+<i>Real-time blockchain monitoring</i>
+      `.trim();
+
+      // Send via Telegram
+      await notificationService.sendTestNotification('telegram', message);
+
+      logger.debug(`📨 Transaction notification sent: Token #${tx.tokenId}`);
+    } catch (error) {
+      logger.error('Failed to send transaction notification', error);
+    }
+  }
+
+  /**
    * Get monitoring status
    */
   getStatus() {
@@ -273,6 +313,7 @@ export class BlockchainMonitorService {
       lastProcessedBlock: this.lastProcessedBlock,
       pollIntervalMs: this.POLL_INTERVAL_MS,
       priceCheckIntervalMs: this.PRICE_CHECK_INTERVAL_MS,
+      notifyAllTransactions: this.NOTIFY_ALL_TRANSACTIONS,
     };
   }
 }
