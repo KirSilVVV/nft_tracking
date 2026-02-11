@@ -149,7 +149,7 @@ const ImageSearch: React.FC = () => {
                   </button>
                   <div className="or-divider">— OR paste from clipboard (Ctrl+V) —</div>
                   <div className="upload-formats">
-                    Supports <span>PNG</span> <span>JPG</span> <span>GIF</span> <span>WEBP</span> · Max 10MB
+                    Supports <span>PNG</span> <span>JPG</span> <span>GIF</span> <span>WEBP</span> <span>AVIF</span> · Max 10MB
                   </div>
                 </div>
               ) : (
