@@ -457,7 +457,7 @@ export class AlchemySDKProvider {
         };
       });
 
-      return sales.filter(sale => sale.tokenId !== '0');
+      return sales.filter((sale: any) => sale.tokenId !== '0');
     } catch (error) {
       logger.error('Error fetching OpenSea sales events', error);
       return [];

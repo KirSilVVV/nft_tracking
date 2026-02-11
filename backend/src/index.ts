@@ -757,18 +757,20 @@ class App {
 
         // Fetch OpenSea sales events for price enrichment
         const contractAddress = process.env.NFT_CONTRACT_ADDRESS || '';
+        const alchemySDK = getAlchemySDKProvider();
         const sales = await alchemySDK.getRecentSales(contractAddress, 300);
         logger.info(`✅ Got ${sales.length} OpenSea sales events`);
 
         // Create price lookup map by tokenId
         const priceMap = new Map<string, number>();
-        sales.forEach(sale => {
+        sales.forEach((sale: any) => {
           priceMap.set(sale.tokenId, sale.priceETH);
         });
 
         // Get whale addresses (20+ NFTs threshold)
-        const whaleHolders = whaleAnalyzer.getTopHolders(9999).filter(h => h.nftCount >= 20);
-        const whaleAddresses = new Set(whaleHolders.map(w => w.address.toLowerCase()));
+        const allHolders = analyticsService.buildHoldersList(allEvents);
+        const whaleHolders = analyticsService.getTopHolders(allHolders, 9999).filter((h: any) => h.count >= 20);
+        const whaleAddresses = new Set(whaleHolders.map((w: any) => w.address.toLowerCase()));
         logger.info(`✅ Identified ${whaleAddresses.size} whale addresses (20+ NFTs)`);
 
         // Filter events within time window
