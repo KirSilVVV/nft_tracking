@@ -437,23 +437,30 @@ export class AlchemySDKProvider {
       }
 
       const data = await response.json() as any;
-      const events = data.asset_events || [];
+
+      // OpenSea API v2 structure: data.asset_events or data.events
+      const events = data.asset_events || data.events || [];
 
       logger.info(`OpenSea returned ${events.length} sale events`);
+      if (events.length > 0) {
+        logger.info(`First event structure: ${JSON.stringify(events[0]).substring(0, 500)}`);
+      }
 
       // Map OpenSea events to our format
       const sales = events.map((event: any) => {
+        // OpenSea v2 payment structure
         const payment = event.payment || {};
-        const priceWei = payment.quantity || '0';
-        const priceETH = parseFloat(priceWei) / 1e18; // Convert Wei to ETH
+        // Try different price fields
+        const priceWei = payment.quantity || payment.value || event.sale_price || '0';
+        const priceETH = priceWei === '0' ? 0 : parseFloat(priceWei) / 1e18; // Convert Wei to ETH
 
         return {
-          tokenId: event.nft?.identifier || '0',
+          tokenId: event.nft?.identifier || event.token_id || '0',
           priceETH: priceETH,
-          from: event.seller || event.from_account?.address || '',
-          to: event.winner_account?.address || event.to_account?.address || '',
-          txHash: event.transaction || '',
-          timestamp: event.event_timestamp ? new Date(event.event_timestamp).getTime() / 1000 : 0,
+          from: event.seller || event.from_account?.address || event.from || '',
+          to: event.winner_account?.address || event.to_account?.address || event.to || '',
+          txHash: event.transaction || event.transaction_hash || '',
+          timestamp: event.event_timestamp ? new Date(event.event_timestamp).getTime() / 1000 : (event.timestamp || 0),
         };
       });
 
