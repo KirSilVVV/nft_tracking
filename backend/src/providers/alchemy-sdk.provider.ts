@@ -420,8 +420,11 @@ export class AlchemySDKProvider {
         return [];
       }
 
+      // MAYC collection slug on OpenSea
+      const collectionSlug = 'mutant-ape-yacht-club';
+
       const response = await fetch(
-        `https://api.opensea.io/api/v2/events/chain/ethereum/contract/${contractAddress}?event_type=sale&limit=${limit}`,
+        `https://api.opensea.io/api/v2/events/collection/${collectionSlug}?event_type=sale&limit=${limit}`,
         {
           method: 'GET',
           headers: {
