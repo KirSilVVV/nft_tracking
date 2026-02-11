@@ -97,6 +97,8 @@
   gap: 12px;
   margin-bottom: 16px;
   flex-wrap: wrap;
+  position: relative;
+  z-index: 1;
 }
 
 .search-box {
