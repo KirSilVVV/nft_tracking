@@ -157,6 +157,11 @@
   align-items: center;
 }
 
+.th-cell {
+  display: flex;
+  align-items: center;
+}
+
 .tx-row {
   display: grid;
   grid-template-columns: 90px 85px 115px 115px 100px 80px 50px;

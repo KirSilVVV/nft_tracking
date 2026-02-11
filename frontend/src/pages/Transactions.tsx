@@ -108,13 +108,13 @@ const Transactions: React.FC = () => {
         <div className="transactions-container">
           <div className="transactions-table">
             <div className="table-header">
-              <span>Type</span>
-              <span>Token ID</span>
-              <span>From</span>
-              <span>To</span>
-              <span>Price</span>
-              <span>Time</span>
-              <span>TX</span>
+              <div className="th-cell">Type</div>
+              <div className="th-cell">Token ID</div>
+              <div className="th-cell">From</div>
+              <div className="th-cell">To</div>
+              <div className="th-cell">Price</div>
+              <div className="th-cell">Time</div>
+              <div className="th-cell">TX</div>
             </div>
             {filteredTransactions.map((tx, index) => (
               <TransactionRow key={`${tx.txHash}-${index}`} tx={tx} />
