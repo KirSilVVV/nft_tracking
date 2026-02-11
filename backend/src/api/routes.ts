@@ -3,6 +3,7 @@ import { getBlockchainService } from '../services/blockchain.service';
 import { getAnalyticsService } from '../services/analytics.service';
 import { getCacheService } from '../services/cache.service';
 import { getAlertService } from '../services/alert.service';
+import { getNotificationService } from '../services/notification.service';
 import { logger } from '../utils/logger';
 
 const router = Router();
@@ -791,6 +792,40 @@ router.post('/alerts/history/:id/acknowledge', (req: Request, res: Response) => 
   } catch (error) {
     logger.error('Error acknowledging alert', error);
     res.status(500).json({ error: 'Failed to acknowledge alert' });
+  }
+});
+
+/**
+ * POST /alerts/test-notification
+ * Test notification sending (Telegram/Email/Webhook)
+ */
+router.post('/alerts/test-notification', async (req: Request, res: Response) => {
+  try {
+    const { channel, message } = req.body;
+
+    if (!channel || !message) {
+      return res.status(400).json({
+        error: 'Missing required fields: channel, message',
+      });
+    }
+
+    const notificationService = getNotificationService();
+    const success = await notificationService.sendTestNotification(channel, message);
+
+    if (success) {
+      res.json({
+        success: true,
+        message: `Test ${channel} notification sent successfully`,
+        timestamp: new Date(),
+      });
+    } else {
+      res.status(500).json({
+        error: `Failed to send ${channel} notification. Check configuration.`,
+      });
+    }
+  } catch (error) {
+    logger.error('Error sending test notification', error);
+    res.status(500).json({ error: 'Failed to send test notification' });
   }
 });
 

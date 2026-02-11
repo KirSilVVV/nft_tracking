@@ -11,6 +11,7 @@ import {
   AlertStatus,
 } from '../models/alert.model';
 import { logger } from '../utils/logger';
+import { getNotificationService } from './notification.service';
 
 class AlertService {
   private rules: Map<string, AlertRule> = new Map();
@@ -319,8 +320,20 @@ class AlertService {
     this.history.unshift(historyItem);
     logger.info(`Alert triggered: ${rule.name} (value: ${value})`);
 
-    // TODO: Send notifications via configured channels
-    // this.sendNotifications(rule, historyItem);
+    // Send notifications via configured channels
+    this.sendNotifications(rule, historyItem);
+  }
+
+  /**
+   * Send notifications for triggered alert
+   */
+  private async sendNotifications(rule: AlertRule, historyItem: AlertHistory): Promise<void> {
+    try {
+      const notificationService = getNotificationService();
+      await notificationService.sendNotifications(rule, historyItem);
+    } catch (error) {
+      logger.error(`Failed to send notifications for alert: ${rule.name}`, error);
+    }
   }
 
   /**
