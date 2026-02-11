@@ -9,8 +9,9 @@ export class WebSocketManager {
   private wss: WebSocketServer;
   private clients: Set<WebSocket> = new Set();
 
-  constructor(server: Server, port: number) {
-    this.wss = new WebSocketServer({ port, noServer: false });
+  constructor(server: Server, port?: number) {
+    // Use the same HTTP server for WebSocket (required for Render free tier - only one port allowed)
+    this.wss = new WebSocketServer({ server });
 
     this.wss.on('connection', (ws: WebSocket) => {
       logger.info('New WebSocket client connected');

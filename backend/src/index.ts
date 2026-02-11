@@ -1010,10 +1010,9 @@ class App {
    */
   private initializeWebSocket(): void {
     try {
-      const wsPort = parseInt(process.env.WS_PORT || '3003', 10);
-      this.wsManager = new WebSocketManager(this.httpServer, wsPort);
+      this.wsManager = new WebSocketManager(this.httpServer);
       setWebSocketService(this.wsManager); // Register singleton for global access
-      logger.info(`WebSocket server initialized on port ${wsPort}`);
+      logger.info(`✅ WebSocket server initialized (sharing HTTP server port)`);
     } catch (error) {
       logger.error('Failed to initialize WebSocket server (non-critical)', error);
       // Continue without WebSocket - it's not critical for the API to function
