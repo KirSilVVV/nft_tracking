@@ -36,50 +36,51 @@ function App() {
   const [selectedTokenId, setSelectedTokenId] = useState<number | null>(null);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState<boolean>(false);
 
-  // Initialize page from hash on mount
+  // Initialize page from URL pathname on mount
   useEffect(() => {
-    const hash = window.location.hash.slice(1); // Remove '#'
+    const path = window.location.pathname.slice(1); // Remove leading '/'
     const validPages: PageType[] = ['home', 'whales', 'dashboard', 'whale-detail', 'alerts', 'image-search', 'ai-insights', 'transactions'];
 
-    if (hash && validPages.includes(hash as PageType)) {
-      setCurrentPage(hash as PageType);
-    } else if (hash === '' || hash === '/') {
+    if (path && validPages.includes(path as PageType)) {
+      setCurrentPage(path as PageType);
+    } else if (path === '' || path === '/') {
       setCurrentPage('home');
     }
   }, []);
 
-  // Listen to hash changes (browser back/forward)
+  // Listen to browser back/forward navigation
   useEffect(() => {
-    const handleHashChange = () => {
-      const hash = window.location.hash.slice(1);
+    const handlePopState = () => {
+      const path = window.location.pathname.slice(1);
       const validPages: PageType[] = ['home', 'whales', 'dashboard', 'whale-detail', 'alerts', 'image-search', 'ai-insights', 'transactions'];
 
-      if (hash && validPages.includes(hash as PageType)) {
-        setCurrentPage(hash as PageType);
-      } else if (hash === '' || hash === '/') {
+      if (path && validPages.includes(path as PageType)) {
+        setCurrentPage(path as PageType);
+      } else if (path === '' || path === '/') {
         setCurrentPage('home');
       }
     };
 
-    window.addEventListener('hashchange', handleHashChange);
-    return () => window.removeEventListener('hashchange', handleHashChange);
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
   }, []);
 
   const handleViewActivity = (address: string) => {
     setSelectedWhaleAddress(address);
     setCurrentPage('whale-detail');
-    window.location.hash = 'whale-detail';
+    window.history.pushState({}, '', '/whale-detail');
   };
 
   const handleViewNft = (tokenId: number) => {
     setSelectedTokenId(tokenId);
     setCurrentPage('image-search');
-    window.location.hash = 'image-search';
+    window.history.pushState({}, '', '/image-search');
   };
 
   const handleNavigate = (page: PageType) => {
     setCurrentPage(page);
-    window.location.hash = page;
+    const path = page === 'home' ? '/' : `/${page}`;
+    window.history.pushState({}, '', path);
     if (page !== 'whale-detail') setSelectedWhaleAddress('');
     if (page !== 'image-search') setSelectedTokenId(null);
   };
