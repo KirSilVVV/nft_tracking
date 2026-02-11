@@ -540,7 +540,7 @@ class App {
         if (allowedTypes.includes(file.mimetype)) {
           cb(null, true);
         } else {
-          cb(new Error('Invalid file type. Only JPEG, PNG, GIF, and WebP are allowed.'));
+          cb(new Error('Invalid file type. Only JPEG, PNG, GIF, WebP, and AVIF are allowed.'));
         }
       },
     });
