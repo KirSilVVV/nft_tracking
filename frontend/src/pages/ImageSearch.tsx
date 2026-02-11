@@ -28,7 +28,9 @@ const ImageSearch: React.FC = () => {
   const { mutate: searchByImage, isPending: isSearching } = useImageSearch();
 
   const handleFileSelect = (file: File) => {
-    if (!file.type.startsWith('image/')) return;
+    // Check MIME type or file extension for image formats (including AVIF, WebP)
+    const isImage = file.type.startsWith('image/') || /\.(jpg|jpeg|png|gif|webp|avif|bmp|svg)$/i.test(file.name);
+    if (!isImage) return;
 
     setUploadedFile(file);
     const reader = new FileReader();
@@ -52,6 +54,7 @@ const ImageSearch: React.FC = () => {
     if (!items) return;
 
     for (const item of Array.from(items)) {
+      // Support all modern image formats including AVIF, WebP
       if (item.type.startsWith('image/')) {
         const file = item.getAsFile();
         if (file) handleFileSelect(file);
@@ -132,7 +135,7 @@ const ImageSearch: React.FC = () => {
                 ref={fileInputRef}
                 type="file"
                 className="upload-input"
-                accept="image/*"
+                accept="image/*,.avif,.webp"
                 onChange={(e) => e.target.files?.[0] && handleFileSelect(e.target.files[0])}
               />
 
