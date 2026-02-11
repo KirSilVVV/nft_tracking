@@ -147,27 +147,31 @@ const TransactionRow: React.FC<{ tx: Transaction }> = ({ tx }) => {
 
   return (
     <div className="tx-row">
-      <span className={`tx-type-badge ${type}`}>{type}</span>
-      <span className="tx-token-id">#{tx.tokenId}</span>
-      <span className="tx-address" title={tx.from}>
+      <div className="tx-cell">
+        <span className={`tx-type-badge ${type}`}>{type}</span>
+      </div>
+      <div className="tx-cell tx-token-id">#{tx.tokenId}</div>
+      <div className="tx-cell tx-address" title={tx.from}>
         {shortenAddress(tx.from)}
-      </span>
-      <span className="tx-address" title={tx.to}>
+      </div>
+      <div className="tx-cell tx-address" title={tx.to}>
         {shortenAddress(tx.to)}
-      </span>
-      <span className="tx-price">
+      </div>
+      <div className="tx-cell tx-price">
         {tx.priceETH ? `${tx.priceETH.toFixed(3)} ETH` : '—'}
-      </span>
-      <span className="tx-time">{timeAgo(tx.timestamp)}</span>
-      <a
-        href={`https://etherscan.io/tx/${tx.txHash}`}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="tx-link"
-        title="View on Etherscan"
-      >
-        ↗
-      </a>
+      </div>
+      <div className="tx-cell tx-time">{timeAgo(tx.timestamp)}</div>
+      <div className="tx-cell tx-link-cell">
+        <a
+          href={`https://etherscan.io/tx/${tx.txHash}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="tx-link"
+          title="View on Etherscan"
+        >
+          ↗
+        </a>
+      </div>
     </div>
   );
 };

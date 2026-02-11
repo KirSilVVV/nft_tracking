@@ -146,7 +146,7 @@
 .table-header {
   display: grid;
   grid-template-columns: 90px 85px 115px 115px 100px 80px 50px;
-  padding: 12px 20px;
+  padding: 14px 20px;
   background: var(--card-h);
   border-bottom: 2px solid var(--border2);
   font-size: 12px;
@@ -154,6 +154,7 @@
   color: var(--t3);
   text-transform: uppercase;
   gap: 12px;
+  align-items: center;
 }
 
 .tx-row {
@@ -175,6 +176,11 @@
   border-bottom: none;
 }
 
+.tx-cell {
+  display: flex;
+  align-items: center;
+}
+
 .tx-type-badge {
   font-size: 11px;
   padding: 4px 8px;
@@ -184,7 +190,6 @@
   text-align: center;
   letter-spacing: 0.3px;
   display: inline-block;
-  max-width: 85px;
 }
 
 .tx-type-badge.sale {
@@ -235,6 +240,10 @@
 .tx-time {
   color: var(--t3);
   font-size: 12px;
+}
+
+.tx-link-cell {
+  justify-content: center;
 }
 
 .tx-link {
