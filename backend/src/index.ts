@@ -4,7 +4,7 @@ import cors from 'cors';
 import http from 'http';
 import multer from 'multer';
 import routes from './api/routes';
-import { WebSocketManager } from './api/websocket';
+import { WebSocketManager, setWebSocketService } from './api/websocket';
 import { getBlockchainService } from './services/blockchain.service';
 import { getAnalyticsService } from './services/analytics.service';
 import { getCacheService } from './services/cache.service';
@@ -1012,6 +1012,7 @@ class App {
     try {
       const wsPort = parseInt(process.env.WS_PORT || '3003', 10);
       this.wsManager = new WebSocketManager(this.httpServer, wsPort);
+      setWebSocketService(this.wsManager); // Register singleton for global access
       logger.info(`WebSocket server initialized on port ${wsPort}`);
     } catch (error) {
       logger.error('Failed to initialize WebSocket server (non-critical)', error);

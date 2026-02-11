@@ -86,7 +86,7 @@ export class WebSocketManager {
       timestamp: new Date(),
     });
 
-    this.broadcast(message);
+    this.broadcastMessage(message);
   }
 
   /**
@@ -104,7 +104,7 @@ export class WebSocketManager {
       },
     });
 
-    this.broadcast(message);
+    this.broadcastMessage(message);
   }
 
   /**
@@ -123,7 +123,7 @@ export class WebSocketManager {
       },
     });
 
-    this.broadcast(message);
+    this.broadcastMessage(message);
   }
 
   /**
@@ -139,7 +139,7 @@ export class WebSocketManager {
       },
     });
 
-    this.broadcast(message);
+    this.broadcastMessage(message);
   }
 
   /**
@@ -154,7 +154,7 @@ export class WebSocketManager {
       },
     });
 
-    this.broadcast(message);
+    this.broadcastMessage(message);
   }
 
   /**
@@ -169,7 +169,7 @@ export class WebSocketManager {
       },
     });
 
-    this.broadcast(message);
+    this.broadcastMessage(message);
   }
 
   /**
@@ -184,7 +184,7 @@ export class WebSocketManager {
       },
     });
 
-    this.broadcast(message);
+    this.broadcastMessage(message);
   }
 
   /**
@@ -197,9 +197,24 @@ export class WebSocketManager {
   }
 
   /**
+   * Get number of connected clients
+   */
+  getClientCount(): number {
+    return this.clients.size;
+  }
+
+  /**
+   * Generic broadcast method for any message type (public API)
+   */
+  broadcast(message: any): void {
+    const jsonMessage = typeof message === 'string' ? message : JSON.stringify(message);
+    this.broadcastMessage(jsonMessage);
+  }
+
+  /**
    * Broadcast message to all connected clients
    */
-  private broadcast(message: string): void {
+  private broadcastMessage(message: string): void {
     let sentCount = 0;
 
     this.clients.forEach((client) => {
@@ -215,13 +230,6 @@ export class WebSocketManager {
   }
 
   /**
-   * Get number of connected clients
-   */
-  getClientCount(): number {
-    return this.clients.size;
-  }
-
-  /**
    * Close all connections
    */
   close(): void {
@@ -231,4 +239,24 @@ export class WebSocketManager {
     this.wss.close();
     logger.info('WebSocket server closed');
   }
+}
+
+// Singleton instance
+let wsInstance: WebSocketManager | null = null;
+
+/**
+ * Get the WebSocket service instance
+ */
+export function getWebSocketService(): WebSocketManager {
+  if (!wsInstance) {
+    throw new Error('WebSocketManager not initialized. Call setWebSocketService() first.');
+  }
+  return wsInstance;
+}
+
+/**
+ * Set the WebSocket service instance (called during app initialization)
+ */
+export function setWebSocketService(instance: WebSocketManager): void {
+  wsInstance = instance;
 }

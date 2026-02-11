@@ -43,7 +43,7 @@ export class BlockchainMonitorService {
 
     // Get current block to start from
     const alchemyProvider = getAlchemyProvider();
-    this.lastProcessedBlock = await alchemyProvider.getCurrentBlock();
+    this.lastProcessedBlock = await alchemyProvider.getBlockNumber();
     logger.info(`Starting from block ${this.lastProcessedBlock}`);
 
     // Start polling loop
@@ -79,7 +79,7 @@ export class BlockchainMonitorService {
 
     try {
       const alchemyProvider = getAlchemyProvider();
-      const currentBlock = await alchemyProvider.getCurrentBlock();
+      const currentBlock = await alchemyProvider.getBlockNumber();
 
       // No new blocks
       if (currentBlock <= this.lastProcessedBlock) {
