@@ -451,9 +451,8 @@ export class AlchemySDKProvider {
 
       // Map OpenSea events to our format
       const sales = events.map((event: any) => {
-        // OpenSea v2 payment structure
+        // OpenSea v2 payment structure: { quantity: "46000000000000000000", token_address: "0x...", decimals: 18, symbol: "ETH" }
         const payment = event.payment || {};
-        // Try different price fields
         const priceWei = payment.quantity || payment.value || event.sale_price || '0';
         const priceETH = priceWei === '0' ? 0 : parseFloat(priceWei) / 1e18; // Convert Wei to ETH
 
@@ -461,13 +460,16 @@ export class AlchemySDKProvider {
           tokenId: event.nft?.identifier || event.token_id || '0',
           priceETH: priceETH,
           from: event.seller || event.from_account?.address || event.from || '',
-          to: event.winner_account?.address || event.to_account?.address || event.to || '',
+          to: event.buyer || event.winner_account?.address || event.to_account?.address || event.to || '',
           txHash: event.transaction || event.transaction_hash || '',
-          timestamp: event.event_timestamp ? new Date(event.event_timestamp).getTime() / 1000 : (event.timestamp || 0),
+          timestamp: event.closing_date || (event.event_timestamp ? new Date(event.event_timestamp).getTime() / 1000 : (event.timestamp || 0)),
         };
       });
 
-      return sales.filter((sale: any) => sale.tokenId !== '0');
+      const validSales = sales.filter((sale: any) => sale.tokenId !== '0' && sale.priceETH > 0);
+      logger.info(`✅ Got ${validSales.length} OpenSea sales events with ETH prices`);
+
+      return validSales;
     } catch (error) {
       logger.error('Error fetching OpenSea sales events', error);
       return [];
