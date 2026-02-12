@@ -14,6 +14,15 @@ interface WhaleCardProps {
 
 const WhaleCard: React.FC<WhaleCardProps> = ({ whale, onViewActivity, onViewNft }) => {
   const [isExpanded, setIsExpanded] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  // Copy address to clipboard
+  const copyAddress = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    navigator.clipboard.writeText(whale.address);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
 
   // Convert Whale data to partial WalletIdentity for badge
   const getPartialIdentity = (): Partial<WalletIdentity> | null => {
@@ -65,6 +74,15 @@ const WhaleCard: React.FC<WhaleCardProps> = ({ whale, onViewActivity, onViewNft 
     return null;
   };
 
+  // Format ETH balance (remove unnecessary zeros)
+  const formatETH = (value: number | null | undefined): string => {
+    if (value === null || value === undefined) return '—';
+    if (value === 0) return '0 ETH';
+    if (value >= 100) return `${value.toFixed(2)} ETH`;
+    if (value >= 1) return `${value.toFixed(2)} ETH`;
+    return `${value.toFixed(4)} ETH`; // for small balances
+  };
+
   // Format dates
   const formatDate = (dateString?: string): string => {
     if (!dateString) return 'Unknown';
@@ -94,13 +112,31 @@ const WhaleCard: React.FC<WhaleCardProps> = ({ whale, onViewActivity, onViewNft 
 
         {/* Identity Badge */}
         <div className="whale-identity" onClick={(e) => e.stopPropagation()}>
-          <WalletIdentityBadge
-            address={whale.address}
-            mode="compact"
-            showSocials={false}
-            showTooltip={true}
-            identity={getPartialIdentity() as WalletIdentity}
-          />
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <WalletIdentityBadge
+              address={whale.address}
+              mode="compact"
+              showSocials={false}
+              showTooltip={true}
+              identity={getPartialIdentity() as WalletIdentity}
+            />
+            <button
+              className="copy-btn"
+              onClick={copyAddress}
+              title={copied ? 'Copied!' : 'Copy address'}
+              style={{
+                background: 'none',
+                border: 'none',
+                color: copied ? 'var(--ok)' : 'var(--t3)',
+                cursor: 'pointer',
+                opacity: copied ? 1 : 0.5,
+                transition: 'all 0.2s',
+                fontSize: '14px',
+              }}
+            >
+              {copied ? '✓' : '📋'}
+            </button>
+          </div>
           {getWhaleTag() && (
             <span className="whale-tag" style={{ marginLeft: '8px' }}>
               {getWhaleTag()}
@@ -126,9 +162,7 @@ const WhaleCard: React.FC<WhaleCardProps> = ({ whale, onViewActivity, onViewNft 
         <div className="wm">
           <div className="l">ETH Balance</div>
           <div className="v" style={{ color: 'var(--t1)' }}>
-            {whale.ethBalance !== null && whale.ethBalance !== undefined
-              ? `${whale.ethBalance.toFixed(4)} ETH`
-              : '—'}
+            {formatETH(whale.ethBalance)}
           </div>
         </div>
       </div>
@@ -196,17 +230,19 @@ const WhaleCard: React.FC<WhaleCardProps> = ({ whale, onViewActivity, onViewNft 
             </div>
             <div className="whale-stats-grid">
               <div className="stat-mini">
-                <div className="stat-mini-label">First Seen</div>
-                <div className="stat-mini-value">{formatDate(whale.firstSeen)}</div>
+                <div className="stat-mini-label">NFT Count</div>
+                <div className="stat-mini-value">{whale.nftCount}</div>
               </div>
               <div className="stat-mini">
-                <div className="stat-mini-label">Last Activity</div>
-                <div className="stat-mini-value">{formatDate(whale.lastActivity)}</div>
+                <div className="stat-mini-label">Collection %</div>
+                <div className="stat-mini-value">
+                  {whale.percentageOfCollection ? whale.percentageOfCollection.toFixed(2) : '0.00'}%
+                </div>
               </div>
               <div className="stat-mini">
                 <div className="stat-mini-label">ETH Balance</div>
                 <div className="stat-mini-value">
-                  {whale.ethBalance !== null ? `${whale.ethBalance.toFixed(4)} ETH` : '—'}
+                  {formatETH(whale.ethBalance)}
                 </div>
               </div>
             </div>

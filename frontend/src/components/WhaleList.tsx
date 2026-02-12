@@ -111,10 +111,9 @@ const WhaleList: React.FC<WhaleListProps> = ({ onViewActivity, onViewNft }) => {
               <div className="l">Floor Price</div>
             </div>
             <div className="collection-meta-item">
-              <div className="v">{analyticsData?.volume24h ? `${analyticsData.volume24h} ETH` : '—'}</div>
+              <div className="v">{analyticsData?.volume24h ? `${Number(analyticsData.volume24h).toFixed(2)} ETH` : '—'}</div>
               <div className="l">24h Volume</div>
-            </div>
-            <div className="collection-meta-item">
+            </div>            <div className="collection-meta-item">
               <div className="v">{analyticsData?.distribution?.whales ?? 0}</div>
               <div className="l">Whales (20+)</div>
             </div>
