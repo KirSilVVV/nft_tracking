@@ -18,7 +18,7 @@ import '../styles/alerts.css';
 
 const Alerts: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'history' | 'rules' | 'channels'>('history');
-  const [showModal, setShowModal] = useState(false);
+  const [showModal, setShowModal] = useState(true); // HARDCODED TEST: modal always open
 
   // Fetch data
   const { data: rules = [], isLoading: rulesLoading } = useAlertRules();
