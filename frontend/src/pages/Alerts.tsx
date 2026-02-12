@@ -1,4 +1,5 @@
 // Alerts - AI-powered customizable alerts page (ATLAS Design)
+// Modal functionality: Click "+ New Rule" to open create alert modal
 
 import React, { useState, useEffect } from 'react';
 import {
