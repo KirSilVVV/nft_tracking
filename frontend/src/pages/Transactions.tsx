@@ -142,19 +142,25 @@ const Transactions: React.FC = () => {
       {/* Transactions Table */}
       {!loading && filteredTransactions.length > 0 && (
         <div className="transactions-container">
-          <div className="transactions-table">
-            <div className="table-header">
-              <div className="th-cell">Type</div>
-              <div className="th-cell">Token ID</div>
-              <div className="th-cell">From</div>
-              <div className="th-cell">To</div>
-              <div className="th-cell">Price</div>
-              <div className="th-cell">Time</div>
-              <div className="th-cell">TX</div>
-            </div>
-            {filteredTransactions.map((tx, index) => (
-              <TransactionRow key={`${tx.txHash}-${index}`} tx={tx} />
-            ))}
+          <div className="transactions-table-wrapper">
+            <table className="transactions-table" style={{ tableLayout: 'fixed', width: '100%' }}>
+              <thead className="table-header">
+                <tr>
+                  <th style={{ width: '100px' }}>TYPE</th>
+                  <th style={{ width: '100px' }}>TOKEN ID</th>
+                  <th style={{ width: '160px' }}>FROM</th>
+                  <th style={{ width: '160px' }}>TO</th>
+                  <th style={{ width: '130px' }}>PRICE</th>
+                  <th style={{ width: '100px' }}>TIME</th>
+                  <th style={{ width: '60px' }}>TX</th>
+                </tr>
+              </thead>
+              <tbody className="table-body">
+                {filteredTransactions.map((tx, index) => (
+                  <TransactionRow key={`${tx.txHash}-${index}`} tx={tx} />
+                ))}
+              </tbody>
+            </table>
           </div>
         </div>
       )}
@@ -185,25 +191,25 @@ const TransactionRow: React.FC<{ tx: Transaction }> = ({ tx }) => {
   const type = getTransactionType(tx);
 
   return (
-    <div className={`tx-row ${tx.isWhaleTransaction ? 'whale-tx' : ''}`}>
-      <div className="tx-cell">
-        <span className={`tx-type-badge ${type}`}>{type}</span>
+    <tr className={`tx-row ${tx.isWhaleTransaction ? 'whale-tx' : ''}`}>
+      <td className="tx-cell">
+        <span className={`tx-type-badge ${type}`}>{type.toUpperCase()}</span>
         {tx.isWhaleTransaction && <span className="whale-badge" title="Whale transaction (20+ NFTs)">🐋</span>}
-      </div>
-      <div className="tx-cell tx-token-id">#{tx.tokenId}</div>
-      <div className="tx-cell tx-address" title={tx.from}>
+      </td>
+      <td className="tx-cell tx-token-id">#{tx.tokenId}</td>
+      <td className="tx-cell tx-address" title={tx.from}>
         {shortenAddress(tx.from)}
         {tx.whaleFrom && <span className="whale-indicator" title="Whale holder">🐋</span>}
-      </div>
-      <div className="tx-cell tx-address" title={tx.to}>
+      </td>
+      <td className="tx-cell tx-address" title={tx.to}>
         {shortenAddress(tx.to)}
         {tx.whaleTo && <span className="whale-indicator" title="Whale holder">🐋</span>}
-      </div>
-      <div className="tx-cell tx-price">
+      </td>
+      <td className="tx-cell tx-price">
         {tx.priceETH ? `${tx.priceETH.toFixed(3)} ETH` : '—'}
-      </div>
-      <div className="tx-cell tx-time">{timeAgo(tx.timestamp)}</div>
-      <div className="tx-cell tx-link-cell">
+      </td>
+      <td className="tx-cell tx-time">{timeAgo(tx.timestamp)}</td>
+      <td className="tx-cell tx-link-cell">
         <a
           href={`https://etherscan.io/tx/${tx.txHash}`}
           target="_blank"
@@ -213,8 +219,8 @@ const TransactionRow: React.FC<{ tx: Transaction }> = ({ tx }) => {
         >
           ↗
         </a>
-      </div>
-    </div>
+      </td>
+    </tr>
   );
 };
 

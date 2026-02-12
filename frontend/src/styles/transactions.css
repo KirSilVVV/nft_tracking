@@ -138,39 +138,43 @@
   overflow: hidden;
 }
 
+.transactions-table-wrapper {
+  overflow-x: auto;
+  overflow-y: visible;
+  max-height: 800px;
+  position: relative;
+}
+
 .transactions-table {
-  display: flex;
-  flex-direction: column;
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  background: var(--card);
 }
 
 .table-header {
-  display: grid;
-  grid-template-columns: 90px 85px 115px 115px 100px 80px 50px;
-  padding: 14px 20px;
   background: var(--card-h);
-  border-bottom: 2px solid var(--border2);
-  font-size: 12px;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.table-header th {
+  padding: 14px 16px;
+  text-align: left;
+  font-size: 11px;
   font-weight: 600;
   color: var(--t3);
   text-transform: uppercase;
-  gap: 12px;
-  align-items: center;
-}
-
-.th-cell {
-  display: flex;
-  align-items: center;
+  letter-spacing: 0.5px;
+  border-bottom: 2px solid var(--border2);
+  background: var(--card-h);
 }
 
 .tx-row {
-  display: grid;
-  grid-template-columns: 90px 85px 115px 115px 100px 80px 50px;
-  align-items: center;
-  padding: 14px 20px;
-  border-bottom: 1px solid var(--border2);
   transition: background 0.15s ease;
-  font-size: 13px;
-  gap: 12px;
+  border-bottom: 1px solid var(--border2);
 }
 
 .tx-row:hover {
@@ -184,17 +188,31 @@
 /* Whale transaction highlighting */
 .tx-row.whale-tx {
   background: rgba(245, 166, 35, 0.08);
-  border-left: 3px solid var(--gold);
+  position: relative;
+}
+
+.tx-row.whale-tx::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: var(--gold);
 }
 
 .tx-row.whale-tx:hover {
   background: rgba(245, 166, 35, 0.12);
 }
 
+.tx-row.whale-tx td:first-child {
+  padding-left: 19px; /* Compensate for left border */
+}
+
 .whale-badge {
-  font-size: 14px;
+  font-size: 13px;
   margin-left: 6px;
-  opacity: 0.8;
+  opacity: 0.9;
 }
 
 .whale-indicator {
@@ -204,45 +222,51 @@
 }
 
 .tx-cell {
-  display: flex;
-  align-items: center;
+  padding: 14px 16px;
+  vertical-align: middle;
+  font-size: 13px;
+  color: var(--t2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .tx-type-badge {
-  font-size: 11px;
+  font-size: 10px;
   padding: 4px 8px;
   border-radius: 12px;
   font-weight: 600;
   text-transform: uppercase;
-  text-align: center;
-  letter-spacing: 0.3px;
+  letter-spacing: 0.5px;
   display: inline-block;
+  line-height: 1;
 }
 
 .tx-type-badge.sale {
-  background: rgba(16, 185, 129, 0.15);
-  color: var(--ok);
+  background: rgba(245, 166, 35, 0.2);
+  color: var(--gold);
 }
 
 .tx-type-badge.transfer {
-  background: rgba(59, 130, 246, 0.15);
+  background: rgba(59, 130, 246, 0.2);
   color: #3B82F6;
 }
 
 .tx-type-badge.mint {
-  background: rgba(245, 166, 35, 0.15);
-  color: var(--gold);
+  background: rgba(16, 185, 129, 0.2);
+  color: var(--ok);
 }
 
 .tx-token-id {
   font-family: 'JetBrains Mono', monospace;
   color: var(--t2);
   font-weight: 500;
+  font-size: 12px;
 }
 
 .tx-address {
   font-family: 'JetBrains Mono', monospace;
-  font-size: 12px;
+  font-size: 11px;
   color: var(--t2);
   cursor: help;
 }
@@ -262,6 +286,7 @@
   font-size: 12px;
   color: var(--ok);
   font-weight: 500;
+  text-align: right;
 }
 
 .tx-time {
@@ -270,28 +295,35 @@
 }
 
 .tx-link-cell {
-  justify-content: center;
+  text-align: center;
 }
 
 .tx-link {
   color: var(--gold);
   text-decoration: none;
-  font-size: 18px;
-  transition: transform 0.2s ease;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  font-size: 16px;
+  transition: transform 0.2s ease, color 0.2s ease;
+  display: inline-block;
 }
 
 .tx-link:hover {
-  transform: scale(1.2);
+  transform: scale(1.15);
+  color: #FFC850;
 }
 
 /* Responsive */
 @media (max-width: 1024px) {
-  .table-header,
-  .tx-row {
-    grid-template-columns: 80px 90px 120px 25px 120px 90px 70px 40px;
+  .transactions-table {
+    font-size: 12px;
+  }
+
+  .table-header th {
+    padding: 12px 10px;
+    font-size: 10px;
+  }
+
+  .tx-cell {
+    padding: 12px 10px;
     font-size: 12px;
   }
 }
@@ -301,21 +333,27 @@
     padding: 16px;
   }
 
-  .table-header {
-    display: none;
+  .transactions-table-wrapper {
+    border-radius: 8px;
   }
 
-  .tx-row {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    padding: 16px;
-    position: relative;
+  /* Enable horizontal scroll on small screens */
+  .transactions-table {
+    min-width: 750px;
   }
 
-  .tx-link {
-    position: absolute;
-    top: 16px;
-    right: 16px;
+  .table-header th {
+    padding: 10px 8px;
+    font-size: 9px;
+  }
+
+  .tx-cell {
+    padding: 10px 8px;
+    font-size: 11px;
+  }
+
+  .tx-type-badge {
+    font-size: 9px;
+    padding: 3px 6px;
   }
 }
