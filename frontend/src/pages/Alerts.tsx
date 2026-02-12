@@ -18,7 +18,7 @@ import '../styles/alerts.css';
 
 const Alerts: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'history' | 'rules' | 'channels'>('history');
-  const [showModal, setShowModal] = useState(true); // HARDCODED TEST: modal always open
+  const [showModal, setShowModal] = useState(false);
 
   // Fetch data
   const { data: rules = [], isLoading: rulesLoading } = useAlertRules();
@@ -389,8 +389,7 @@ const Alerts: React.FC = () => {
       )}
 
       {/* Create Alert Modal */}
-      {showModal && (
-        <div className="modal-overlay show" onClick={() => setShowModal(false)}>
+      <div className={`modal-overlay ${showModal ? 'show' : ''}`} onClick={() => setShowModal(false)}>
           <div className="modal" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <h2>🔔 Create New Alert</h2>
@@ -479,7 +478,6 @@ const Alerts: React.FC = () => {
             </div>
           </div>
         </div>
-      )}
     </>
   );
 };
