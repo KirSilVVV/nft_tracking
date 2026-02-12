@@ -20,9 +20,14 @@ PORT=6252
 WS_PORT=6255
 LOG_LEVEL=info
 
-# Telegram Notifications (ЗАПОЛНИТЬ!)
-TELEGRAM_BOT_TOKEN=<получить через @BotFather>
-TELEGRAM_CHAT_ID=<получить через @userinfobot>
+# Telegram Notifications
+TELEGRAM_BOT_TOKEN=<your_telegram_bot_token>
+TELEGRAM_CHAT_ID=<your_telegram_chat_id>
+
+# SendGrid Email Notifications
+SENDGRID_API_KEY=<your_sendgrid_api_key>
+FROM_EMAIL=MAYC Alerts <alerts@nftai.one>
+TO_EMAIL=<your_email@example.com>
 
 # Test Mode (для тестов - уведомление на каждую транзакцию)
 NOTIFY_ALL_TRANSACTIONS=true
