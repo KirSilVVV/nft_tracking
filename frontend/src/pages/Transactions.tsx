@@ -143,16 +143,25 @@ const Transactions: React.FC = () => {
       {!loading && filteredTransactions.length > 0 && (
         <div className="transactions-container">
           <div className="transactions-table-wrapper">
-            <table className="transactions-table" style={{ tableLayout: 'fixed', width: '100%' }}>
+            <table className="transactions-table">
+              <colgroup>
+                <col style={{ width: '120px' }} />
+                <col style={{ width: '110px' }} />
+                <col style={{ width: '180px' }} />
+                <col style={{ width: '180px' }} />
+                <col style={{ width: '130px' }} />
+                <col style={{ width: '110px' }} />
+                <col style={{ width: '70px' }} />
+              </colgroup>
               <thead className="table-header">
                 <tr>
-                  <th style={{ width: '100px' }}>TYPE</th>
-                  <th style={{ width: '100px' }}>TOKEN ID</th>
-                  <th style={{ width: '160px' }}>FROM</th>
-                  <th style={{ width: '160px' }}>TO</th>
-                  <th style={{ width: '130px' }}>PRICE</th>
-                  <th style={{ width: '100px' }}>TIME</th>
-                  <th style={{ width: '60px' }}>TX</th>
+                  <th>TYPE</th>
+                  <th>TOKEN ID</th>
+                  <th>FROM</th>
+                  <th>TO</th>
+                  <th>PRICE</th>
+                  <th>TIME</th>
+                  <th>TX</th>
                 </tr>
               </thead>
               <tbody className="table-body">

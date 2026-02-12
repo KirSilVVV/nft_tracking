@@ -140,13 +140,13 @@
 
 .transactions-table-wrapper {
   overflow-x: auto;
-  overflow-y: visible;
+  overflow-y: auto;
   max-height: 800px;
   position: relative;
 }
 
 .transactions-table {
-  width: 100%;
+  width: 900px;
   border-collapse: collapse;
   table-layout: fixed;
   background: var(--card);
