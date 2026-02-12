@@ -144,24 +144,15 @@ const Transactions: React.FC = () => {
         <div className="transactions-container">
           <div className="transactions-table-wrapper">
             <table className="transactions-table">
-              <colgroup>
-                <col style={{ width: '120px' }} />
-                <col style={{ width: '110px' }} />
-                <col style={{ width: '180px' }} />
-                <col style={{ width: '180px' }} />
-                <col style={{ width: '130px' }} />
-                <col style={{ width: '110px' }} />
-                <col style={{ width: '70px' }} />
-              </colgroup>
               <thead className="table-header">
                 <tr>
-                  <th>TYPE</th>
-                  <th>TOKEN ID</th>
-                  <th>FROM</th>
-                  <th>TO</th>
-                  <th>PRICE</th>
-                  <th>TIME</th>
-                  <th>TX</th>
+                  <th style={{ width: '100px' }}>TYPE</th>
+                  <th style={{ width: '100px' }}>TOKEN ID</th>
+                  <th style={{ width: '160px' }}>FROM</th>
+                  <th style={{ width: '160px' }}>TO</th>
+                  <th style={{ width: '130px', textAlign: 'right' }}>PRICE</th>
+                  <th style={{ width: '100px' }}>TIME</th>
+                  <th style={{ width: '60px', textAlign: 'center' }}>TX</th>
                 </tr>
               </thead>
               <tbody className="table-body">
