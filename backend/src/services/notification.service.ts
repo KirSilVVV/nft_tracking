@@ -263,9 +263,74 @@ ${emoji} <b>Alert Triggered: ${rule.name}</b>
         return true;
       }
 
+      if (channel === 'email') {
+        return await this.sendTransactionEmail(message);
+      }
+
       return false;
     } catch (error) {
       logger.error('Failed to send test notification', error);
+      return false;
+    }
+  }
+
+  /**
+   * Send transaction notification email (optimized for real-time alerts)
+   */
+  private async sendTransactionEmail(message: string): Promise<boolean> {
+    const sendgridApiKey = process.env.SENDGRID_API_KEY;
+    const fromEmail = process.env.FROM_EMAIL || 'MAYC Alerts <alerts@nftai.one>';
+    const toEmail = process.env.TO_EMAIL;
+
+    if (!sendgridApiKey || !toEmail) {
+      logger.warn('Email notification skipped: SENDGRID_API_KEY or TO_EMAIL not configured');
+      return false;
+    }
+
+    try {
+      const sgMail = require('@sendgrid/mail');
+      sgMail.setApiKey(sendgridApiKey);
+
+      // Parse emoji from message for subject
+      const emojiMatch = message.match(/^(🐋|💰|🔄)/);
+      const emoji = emojiMatch ? emojiMatch[1] : '🔔';
+
+      // Extract token ID for subject
+      const tokenMatch = message.match(/Token:<\/b> #(\d+)/);
+      const tokenId = tokenMatch ? tokenMatch[1] : 'Unknown';
+
+      const subject = `${emoji} MAYC #${tokenId} Transaction`;
+
+      // Convert Telegram HTML to Email HTML (more styled)
+      const emailHtml = `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #0B0B10; color: #F0F0F5; padding: 20px; border-radius: 12px;">
+          <div style="background: linear-gradient(135deg, #1a1a1f 0%, #0f0f13 100%); padding: 24px; border-radius: 8px; margin-bottom: 20px; border-left: 4px solid #F5A623;">
+            ${message.replace(/\n/g, '<br>').replace(/<code>/g, '<span style="font-family: monospace; background: #14141A; padding: 2px 6px; border-radius: 4px;">').replace(/<\/code>/g, '</span>')}
+          </div>
+          <div style="text-align: center; padding-top: 16px; border-top: 1px solid #1E1E24;">
+            <p style="margin: 0; font-size: 12px; color: #6B6B7B;">
+              NFT Tracker AI • Real-time MAYC Monitoring<br>
+              <a href="https://nftai.one" style="color: #F5A623; text-decoration: none;">nftai.one</a>
+            </p>
+          </div>
+        </div>
+      `;
+
+      const msg = {
+        to: toEmail,
+        from: fromEmail,
+        subject,
+        html: emailHtml,
+      };
+
+      await sgMail.send(msg);
+      logger.info(`✅ Transaction email sent to ${toEmail}: Token #${tokenId}`);
+      return true;
+    } catch (error: any) {
+      logger.error('Failed to send transaction email', error);
+      if (error.response) {
+        logger.error('SendGrid error details:', error.response.body);
+      }
       return false;
     }
   }

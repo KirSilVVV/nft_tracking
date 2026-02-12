@@ -298,7 +298,10 @@ ${emoji} <b>MAYC Transaction${whaleTag}</b>
       // Send via Telegram
       await notificationService.sendTestNotification('telegram', message);
 
-      logger.debug(`📨 Transaction notification sent: Token #${tx.tokenId}`);
+      // Send via Email (same format, HTML already compatible)
+      await notificationService.sendTestNotification('email', message);
+
+      logger.debug(`📨 Transaction notification sent (Telegram + Email): Token #${tx.tokenId}`);
     } catch (error) {
       logger.error('Failed to send transaction notification', error);
     }
