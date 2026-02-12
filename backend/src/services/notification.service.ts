@@ -130,9 +130,78 @@ ${emoji} <b>Alert Triggered: ${rule.name}</b>
    * Send Email notification
    */
   private async sendEmailNotification(rule: AlertRule, historyItem: AlertHistory): Promise<void> {
-    // TODO: Implement email sending via SMTP or SendGrid
-    logger.info(`📧 Email notification would be sent for alert: ${rule.name}`);
-    logger.debug('Email notifications not yet implemented - use Telegram for now');
+    const sendgridApiKey = process.env.SENDGRID_API_KEY;
+    const fromEmail = process.env.FROM_EMAIL || 'alerts@nft-tracker.ai';
+    const toEmail = process.env.TO_EMAIL;
+
+    if (!sendgridApiKey || !toEmail) {
+      logger.warn('Email notification skipped: SENDGRID_API_KEY or TO_EMAIL not configured');
+      return;
+    }
+
+    try {
+      const sgMail = require('@sendgrid/mail');
+      sgMail.setApiKey(sendgridApiKey);
+
+      const emoji = this.getAlertEmoji(rule.type);
+      const subject = `${emoji} ${rule.name} Alert`;
+
+      const htmlContent = `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background: #0B0B10; color: #F0F0F5; border-radius: 12px;">
+          <div style="background: linear-gradient(135deg, #1a1a1f 0%, #0f0f13 100%); padding: 24px; border-radius: 8px; margin-bottom: 20px; border-left: 4px solid #F5A623;">
+            <h2 style="margin: 0 0 12px; color: #F5A623;">${emoji} ${rule.name}</h2>
+            <p style="margin: 0; font-size: 14px; color: #9494A8;">Alert Triggered • ${new Date(historyItem.triggeredAt).toLocaleString()}</p>
+          </div>
+
+          <div style="background: #14141A; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+            <h3 style="margin: 0 0 16px; color: #F0F0F5; font-size: 16px;">Alert Details</h3>
+            <div style="margin-bottom: 12px;">
+              <span style="color: #9494A8;">Type:</span>
+              <span style="color: #F0F0F5; font-weight: 600; margin-left: 8px;">${rule.type}</span>
+            </div>
+            <div style="margin-bottom: 12px;">
+              <span style="color: #9494A8;">Condition:</span>
+              <span style="color: #F0F0F5; font-weight: 600; margin-left: 8px;">${rule.condition} ${rule.threshold}</span>
+            </div>
+            <div style="margin-bottom: 12px;">
+              <span style="color: #9494A8;">Current Value:</span>
+              <span style="color: #F5A623; font-weight: 700; margin-left: 8px;">${historyItem.value}</span>
+            </div>
+            <div style="padding-top: 12px; border-top: 1px solid #1E1E24;">
+              <p style="margin: 0; color: #F0F0F5; line-height: 1.6;">${historyItem.message}</p>
+            </div>
+          </div>
+
+          <div style="text-align: center; padding: 16px 0;">
+            <a href="https://nftai.one/alerts" style="display: inline-block; background: #F5A623; color: #0B0B10; padding: 12px 28px; border-radius: 8px; text-decoration: none; font-weight: 600;">
+              View All Alerts →
+            </a>
+          </div>
+
+          <div style="text-align: center; padding-top: 16px; border-top: 1px solid #1E1E24; margin-top: 20px;">
+            <p style="margin: 0; font-size: 12px; color: #6B6B7B;">
+              NFT Tracker AI • Mutant Ape Yacht Club Analytics<br>
+              <a href="https://nftai.one" style="color: #F5A623; text-decoration: none;">nftai.one</a>
+            </p>
+          </div>
+        </div>
+      `;
+
+      const msg = {
+        to: toEmail,
+        from: fromEmail,
+        subject,
+        html: htmlContent,
+      };
+
+      await sgMail.send(msg);
+      logger.info(`✅ Email notification sent to ${toEmail}: ${rule.name}`);
+    } catch (error: any) {
+      logger.error('Failed to send email notification', error);
+      if (error.response) {
+        logger.error('SendGrid error details:', error.response.body);
+      }
+    }
   }
 
   /**
