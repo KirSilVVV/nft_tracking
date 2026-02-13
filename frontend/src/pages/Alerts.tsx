@@ -14,8 +14,8 @@ import { CreateAlertRequest, AlertType, AlertCondition, AlertChannel, AlertHisto
 import { Spinner } from '../components/loading';
 import { useWebSocket } from '../hooks/useWebSocket';
 import { useToast } from '../contexts/ToastContext';
+import Modal from '../components/Modal';
 import '../styles/alerts.css';
-import '../styles/Modal.css';
 
 const Alerts: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'history' | 'rules' | 'channels'>('history');
@@ -403,104 +403,94 @@ const Alerts: React.FC = () => {
         </div>
       )}
 
-      {/* Create Alert Modal */}
-      {showModal && (
-        <div
-          className="modal-overlay"
-          onClick={() => {
-            console.log('🔍 [Alerts Debug] Modal overlay clicked, closing modal');
-            setShowModal(false);
-          }}
-        >
-          <div className="modal" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header">
-              <h2>🔔 Create New Alert</h2>
-              <button className="modal-close" onClick={() => setShowModal(false)}>✕</button>
-            </div>
-            <div className="modal-body">
-              <div className="form-group">
-                <div className="form-label">Alert Name <span className="required">*</span></div>
-                <input
-                  className="form-input"
-                  type="text"
-                  placeholder="e.g. Whale Accumulation Alert"
-                  value={newAlert.name}
-                  onChange={(e) => setNewAlert({ ...newAlert, name: e.target.value })}
-                />
-              </div>
+      {/* Create Alert Modal - Rendered via Portal to document.body */}
+      <Modal show={showModal} onClose={() => setShowModal(false)}>
+        <div className="modal-header">
+          <h2>🔔 Create New Alert</h2>
+          <button className="modal-close" onClick={() => setShowModal(false)}>✕</button>
+        </div>
+        <div className="modal-body">
+          <div className="form-group">
+            <div className="form-label">Alert Name <span className="required">*</span></div>
+            <input
+              className="form-input"
+              type="text"
+              placeholder="e.g. Whale Accumulation Alert"
+              value={newAlert.name}
+              onChange={(e) => setNewAlert({ ...newAlert, name: e.target.value })}
+            />
+          </div>
 
-              <div className="form-group">
-                <div className="form-label">Alert Type <span className="required">*</span></div>
-                <select
-                  className="form-input"
-                  value={newAlert.type}
-                  onChange={(e) => setNewAlert({ ...newAlert, type: e.target.value as AlertType })}
-                >
-                  <option value="price">💰 Price Alert</option>
-                  <option value="whale">🐋 Whale Activity</option>
-                  <option value="volume">📊 Volume Alert</option>
-                  <option value="listing">📝 Listing Alert</option>
-                </select>
-              </div>
+          <div className="form-group">
+            <div className="form-label">Alert Type <span className="required">*</span></div>
+            <select
+              className="form-input"
+              value={newAlert.type}
+              onChange={(e) => setNewAlert({ ...newAlert, type: e.target.value as AlertType })}
+            >
+              <option value="price">💰 Price Alert</option>
+              <option value="whale">🐋 Whale Activity</option>
+              <option value="volume">📊 Volume Alert</option>
+              <option value="listing">📝 Listing Alert</option>
+            </select>
+          </div>
 
-              <div className="form-group">
-                <div className="form-label">Condition <span className="required">*</span></div>
-                <select
-                  className="form-input"
-                  value={newAlert.condition}
-                  onChange={(e) => setNewAlert({ ...newAlert, condition: e.target.value as AlertCondition })}
-                >
-                  <option value="above">Above</option>
-                  <option value="below">Below</option>
-                  <option value="equals">Equals</option>
-                  <option value="change">Change by %</option>
-                </select>
-              </div>
+          <div className="form-group">
+            <div className="form-label">Condition <span className="required">*</span></div>
+            <select
+              className="form-input"
+              value={newAlert.condition}
+              onChange={(e) => setNewAlert({ ...newAlert, condition: e.target.value as AlertCondition })}
+            >
+              <option value="above">Above</option>
+              <option value="below">Below</option>
+              <option value="equals">Equals</option>
+              <option value="change">Change by %</option>
+            </select>
+          </div>
 
-              <div className="form-group">
-                <div className="form-label">Threshold <span className="required">*</span></div>
-                <input
-                  className="form-input"
-                  type="number"
-                  step="0.01"
-                  placeholder="e.g. 4.5"
-                  value={newAlert.threshold || ''}
-                  onChange={(e) => setNewAlert({ ...newAlert, threshold: parseFloat(e.target.value) || 0 })}
-                />
-              </div>
+          <div className="form-group">
+            <div className="form-label">Threshold <span className="required">*</span></div>
+            <input
+              className="form-input"
+              type="number"
+              step="0.01"
+              placeholder="e.g. 4.5"
+              value={newAlert.threshold || ''}
+              onChange={(e) => setNewAlert({ ...newAlert, threshold: parseFloat(e.target.value) || 0 })}
+            />
+          </div>
 
-              <div className="form-group">
-                <div className="form-label">Notification Channels <span className="required">*</span></div>
-                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                  {(['telegram', 'email', 'webhook', 'push'] as AlertChannel[]).map((channel) => (
-                    <label key={channel} style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
-                      <input
-                        type="checkbox"
-                        checked={newAlert.channels.includes(channel)}
-                        onChange={(e) => {
-                          if (e.target.checked) {
-                            setNewAlert({ ...newAlert, channels: [...newAlert.channels, channel] });
-                          } else {
-                            setNewAlert({ ...newAlert, channels: newAlert.channels.filter(c => c !== channel) });
-                          }
-                        }}
-                      />
-                      <span style={{ textTransform: 'capitalize' }}>{channel}</span>
-                    </label>
-                  ))}
-                </div>
-              </div>
-            </div>
-            <div className="modal-footer">
-              <div className="modal-footer-left">All fields with <span style={{color: 'var(--no)'}}>*</span> are required</div>
-              <div style={{display: 'flex', gap: '10px'}}>
-                <button className="btn btn-ghost" onClick={() => setShowModal(false)}>Cancel</button>
-                <button className="btn btn-primary" onClick={handleCreateAlert}>Create Alert Rule →</button>
-              </div>
+          <div className="form-group">
+            <div className="form-label">Notification Channels <span className="required">*</span></div>
+            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+              {(['telegram', 'email', 'webhook', 'push'] as AlertChannel[]).map((channel) => (
+                <label key={channel} style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
+                  <input
+                    type="checkbox"
+                    checked={newAlert.channels.includes(channel)}
+                    onChange={(e) => {
+                      if (e.target.checked) {
+                        setNewAlert({ ...newAlert, channels: [...newAlert.channels, channel] });
+                      } else {
+                        setNewAlert({ ...newAlert, channels: newAlert.channels.filter(c => c !== channel) });
+                      }
+                    }}
+                  />
+                  <span style={{ textTransform: 'capitalize' }}>{channel}</span>
+                </label>
+              ))}
             </div>
           </div>
         </div>
-      )}
+        <div className="modal-footer">
+          <div className="modal-footer-left">All fields with <span style={{color: 'var(--no)'}}>*</span> are required</div>
+          <div style={{display: 'flex', gap: '10px'}}>
+            <button className="btn btn-ghost" onClick={() => setShowModal(false)}>Cancel</button>
+            <button className="btn btn-primary" onClick={handleCreateAlert}>Create Alert Rule →</button>
+          </div>
+        </div>
+      </Modal>
     </>
   );
 };

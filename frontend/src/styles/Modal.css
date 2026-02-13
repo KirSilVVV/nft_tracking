@@ -5,13 +5,14 @@
   background: rgba(0, 0, 0, 0.6);
   backdrop-filter: blur(8px);
   z-index: 9998;
-  display: flex;
-  align-items: center;
-  justify-content: center;
 }
 
 /* ===== MODAL CONTAINER ===== */
 .modal {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
   background: var(--card);
   border: 1px solid var(--brd);
   border-radius: 20px;
@@ -21,7 +22,6 @@
   overflow-y: auto;
   box-shadow: 0 24px 80px rgba(0, 0, 0, 0.6);
   z-index: 9999;
-  position: relative;
 }
 
 /* ===== MODAL HEADER ===== */
