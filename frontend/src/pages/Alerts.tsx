@@ -270,11 +270,9 @@ const Alerts: React.FC = () => {
               <input type="text" placeholder="Search rules..." />
             </div>
             <div style={{ marginLeft: 'auto' }}>
-              <button className="btn btn-primary btn-sm" onClick={() => {
-                alert('BUTTON CLICKED! Check if modal opens after closing this alert.');
-                showToast('Button onClick fired!', 'info');
-                setShowModal(true);
-              }}>+ New Rule</button>
+              <button className="btn btn-primary btn-sm" onClick={() => setShowModal(true)}>
+                + New Rule
+              </button>
             </div>
           </div>
 
@@ -393,7 +391,11 @@ const Alerts: React.FC = () => {
       )}
 
       {/* Create Alert Modal */}
-      <div className={`modal-overlay ${showModal ? 'show' : ''}`} onClick={() => setShowModal(false)}>
+      <div
+        className="modal-overlay"
+        style={{ display: showModal ? 'flex' : 'none' }}
+        onClick={() => setShowModal(false)}
+      >
           <div className="modal" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <h2>🔔 Create New Alert</h2>
