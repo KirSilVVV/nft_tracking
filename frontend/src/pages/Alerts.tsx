@@ -404,13 +404,14 @@ const Alerts: React.FC = () => {
       )}
 
       {/* Create Alert Modal */}
-      <div
-        className={`modal-overlay ${showModal ? 'show' : ''}`}
-        onClick={() => {
-          console.log('🔍 [Alerts Debug] Modal overlay clicked, closing modal');
-          setShowModal(false);
-        }}
-      >
+      {showModal && (
+        <div
+          className="modal-overlay"
+          onClick={() => {
+            console.log('🔍 [Alerts Debug] Modal overlay clicked, closing modal');
+            setShowModal(false);
+          }}
+        >
           <div className="modal" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <h2>🔔 Create New Alert</h2>
@@ -499,6 +500,7 @@ const Alerts: React.FC = () => {
             </div>
           </div>
         </div>
+      )}
     </>
   );
 };

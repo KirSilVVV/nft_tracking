@@ -5,13 +5,9 @@
   background: rgba(0, 0, 0, 0.6);
   backdrop-filter: blur(8px);
   z-index: 9998;
-  display: none;
+  display: flex;
   align-items: center;
   justify-content: center;
-}
-
-.modal-overlay.show {
-  display: flex !important;
 }
 
 /* ===== MODAL CONTAINER ===== */
