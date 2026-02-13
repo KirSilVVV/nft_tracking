@@ -15,6 +15,7 @@ import { Spinner } from '../components/loading';
 import { useWebSocket } from '../hooks/useWebSocket';
 import { useToast } from '../contexts/ToastContext';
 import '../styles/alerts.css';
+import '../styles/Modal.css';
 
 const Alerts: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'history' | 'rules' | 'channels'>('history');
