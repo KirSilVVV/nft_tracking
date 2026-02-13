@@ -67,14 +67,77 @@ const Transactions: React.FC = () => {
   const fetchTransactions = async () => {
     try {
       setLoading(true);
-      const baseUrl = process.env.REACT_APP_API_URL?.replace('/api/whales', '') || 'http://localhost:6252';
+      const baseUrl = process.env.REACT_APP_API_URL?.replace('/api/whales', '') ?? '';
       const response = await fetch(`${baseUrl}/api/transactions/recent?limit=100`);
       const data: TransactionsResponse = await response.json();
       setTransactions(data.transactions || []);
       showToast(`Loaded ${data.count} recent transactions`, 'success');
     } catch (err) {
       console.error('Failed to fetch transactions:', err);
-      showToast('Failed to load transactions', 'error');
+
+      // Mock data for testing table alignment
+      const mockTransactions: Transaction[] = [
+        {
+          tokenId: 12345,
+          from: '0x742d35Cc6634C0532925a3b844Bc454e4438f44e',
+          to: '0x8Ba1f109551bD432803012645Ac136ddd64DBA72',
+          timestamp: Math.floor(Date.now() / 1000) - 300,
+          txHash: '0xabc123def456',
+          type: 'sale',
+          priceETH: 4.567,
+          isWhaleTransaction: true,
+          whaleFrom: true,
+          whaleTo: false,
+        },
+        {
+          tokenId: 8901,
+          from: '0x29469395eAf6f95920E59F858042f0e28D98a20B',
+          to: '0x123456789abcdef123456789abcdef123456789a',
+          timestamp: Math.floor(Date.now() / 1000) - 1200,
+          txHash: '0xdef789ghi012',
+          type: 'transfer',
+          isWhaleTransaction: true,
+          whaleFrom: true,
+          whaleTo: false,
+        },
+        {
+          tokenId: 3456,
+          from: '0x0000000000000000000000000000000000000000',
+          to: '0xAbCdEf123456789aBcDeF123456789AbCdEf1234',
+          timestamp: Math.floor(Date.now() / 1000) - 3600,
+          txHash: '0xmint123abc456',
+          type: 'mint',
+          isWhaleTransaction: false,
+          whaleFrom: false,
+          whaleTo: false,
+        },
+        {
+          tokenId: 7777,
+          from: '0x555555555555555555555555555555555555555',
+          to: '0x666666666666666666666666666666666666666',
+          timestamp: Math.floor(Date.now() / 1000) - 7200,
+          txHash: '0xsale999zzz888',
+          type: 'sale',
+          priceETH: 12.345,
+          isWhaleTransaction: false,
+          whaleFrom: false,
+          whaleTo: false,
+        },
+        {
+          tokenId: 1001,
+          from: '0x29A1D37d588608bbA9ddD5DD4dc3f99d0B5C088e',
+          to: '0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF',
+          timestamp: Math.floor(Date.now() / 1000) - 10800,
+          txHash: '0xwhale777mega888',
+          type: 'transfer',
+          isWhaleTransaction: true,
+          whaleFrom: true,
+          whaleTo: false,
+        },
+      ];
+
+      setTransactions(mockTransactions);
+      showToast('Loaded 5 mock transactions (backend unavailable)', 'warning');
     } finally {
       setLoading(false);
     }
@@ -144,18 +207,27 @@ const Transactions: React.FC = () => {
         <div className="transactions-container">
           <div className="transactions-table-wrapper">
             <table className="transactions-table">
-              <thead className="table-header">
+              <colgroup>
+                <col style={{ width: '180px' }} />
+                <col style={{ width: '130px' }} />
+                <col style={{ width: '200px' }} />
+                <col style={{ width: '200px' }} />
+                <col style={{ width: '160px' }} />
+                <col style={{ width: '130px' }} />
+                <col style={{ width: '90px' }} />
+              </colgroup>
+              <thead>
                 <tr>
-                  <th style={{ width: '100px' }}>TYPE</th>
-                  <th style={{ width: '100px' }}>TOKEN ID</th>
-                  <th style={{ width: '160px' }}>FROM</th>
-                  <th style={{ width: '160px' }}>TO</th>
-                  <th style={{ width: '130px', textAlign: 'right' }}>PRICE</th>
-                  <th style={{ width: '100px' }}>TIME</th>
-                  <th style={{ width: '60px', textAlign: 'center' }}>TX</th>
+                  <th>TYPE</th>
+                  <th>TOKEN ID</th>
+                  <th>FROM</th>
+                  <th>TO</th>
+                  <th style={{ textAlign: 'right' }}>PRICE</th>
+                  <th>TIME</th>
+                  <th style={{ textAlign: 'center' }}>TX</th>
                 </tr>
               </thead>
-              <tbody className="table-body">
+              <tbody>
                 {filteredTransactions.map((tx, index) => (
                   <TransactionRow key={`${tx.txHash}-${index}`} tx={tx} />
                 ))}
@@ -191,25 +263,25 @@ const TransactionRow: React.FC<{ tx: Transaction }> = ({ tx }) => {
   const type = getTransactionType(tx);
 
   return (
-    <tr className={`tx-row ${tx.isWhaleTransaction ? 'whale-tx' : ''}`}>
-      <td className="tx-cell">
+    <tr className={tx.isWhaleTransaction ? 'whale-tx' : ''}>
+      <td>
         <span className={`tx-type-badge ${type}`}>{type.toUpperCase()}</span>
         {tx.isWhaleTransaction && <span className="whale-badge" title="Whale transaction (20+ NFTs)">🐋</span>}
       </td>
-      <td className="tx-cell tx-token-id">#{tx.tokenId}</td>
-      <td className="tx-cell tx-address" title={tx.from}>
+      <td>#{tx.tokenId}</td>
+      <td title={tx.from}>
         {shortenAddress(tx.from)}
         {tx.whaleFrom && <span className="whale-indicator" title="Whale holder">🐋</span>}
       </td>
-      <td className="tx-cell tx-address" title={tx.to}>
+      <td title={tx.to}>
         {shortenAddress(tx.to)}
         {tx.whaleTo && <span className="whale-indicator" title="Whale holder">🐋</span>}
       </td>
-      <td className="tx-cell tx-price">
+      <td style={{ textAlign: 'right' }}>
         {tx.priceETH ? `${tx.priceETH.toFixed(3)} ETH` : '—'}
       </td>
-      <td className="tx-cell tx-time">{timeAgo(tx.timestamp)}</td>
-      <td className="tx-cell tx-link-cell">
+      <td>{timeAgo(tx.timestamp)}</td>
+      <td style={{ textAlign: 'center' }}>
         <a
           href={`https://etherscan.io/tx/${tx.txHash}`}
           target="_blank"

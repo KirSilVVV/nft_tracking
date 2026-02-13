@@ -2,6 +2,7 @@
   "name": "frontend",
   "version": "0.1.0",
   "private": true,
+  "proxy": "https://nft-tracking-h9ex.onrender.com",
   "dependencies": {
     "@tanstack/react-query": "^5.90.20",
     "@testing-library/dom": "^10.4.1",

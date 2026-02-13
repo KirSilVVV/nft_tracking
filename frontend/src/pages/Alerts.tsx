@@ -20,6 +20,11 @@ const Alerts: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'history' | 'rules' | 'channels'>('history');
   const [showModal, setShowModal] = useState(false);
 
+  // Debug: Log modal state changes
+  useEffect(() => {
+    console.log('🔍 [Alerts Debug] showModal state:', showModal);
+  }, [showModal]);
+
   // Fetch data
   const { data: rules = [], isLoading: rulesLoading } = useAlertRules();
   const { data: stats, isLoading: statsLoading } = useAlertStats();
@@ -270,7 +275,14 @@ const Alerts: React.FC = () => {
               <input type="text" placeholder="Search rules..." />
             </div>
             <div style={{ marginLeft: 'auto' }}>
-              <button className="btn btn-primary btn-sm" onClick={() => setShowModal(true)}>
+              <button
+                className="btn btn-primary btn-sm"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  console.log('🔴 [Alerts Debug] Button clicked! Setting showModal to true...');
+                  setShowModal(true);
+                }}
+              >
                 + New Rule
               </button>
             </div>
@@ -392,9 +404,11 @@ const Alerts: React.FC = () => {
 
       {/* Create Alert Modal */}
       <div
-        className="modal-overlay"
-        style={{ display: showModal ? 'flex' : 'none' }}
-        onClick={() => setShowModal(false)}
+        className={`modal-overlay ${showModal ? 'show' : ''}`}
+        onClick={() => {
+          console.log('🔍 [Alerts Debug] Modal overlay clicked, closing modal');
+          setShowModal(false);
+        }}
       >
           <div className="modal" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
