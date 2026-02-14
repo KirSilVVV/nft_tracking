@@ -14,7 +14,7 @@ import { CreateAlertRequest, AlertType, AlertCondition, AlertChannel, AlertHisto
 import { Spinner } from '../components/loading';
 import { useWebSocket } from '../hooks/useWebSocket';
 import { useToast } from '../contexts/ToastContext';
-import Modal from '../components/Modal';
+import AlertModal from '../components/AlertModal';
 import '../styles/alerts.css';
 
 const Alerts: React.FC = () => {
@@ -404,7 +404,7 @@ const Alerts: React.FC = () => {
       )}
 
       {/* Create Alert Modal - Rendered via Portal to document.body */}
-      <Modal show={showModal} onClose={() => setShowModal(false)}>
+      <AlertModal show={showModal} onClose={() => setShowModal(false)}>
         <div className="modal-header">
           <h2>🔔 Create New Alert</h2>
           <button className="modal-close" onClick={() => setShowModal(false)}>✕</button>
@@ -490,7 +490,7 @@ const Alerts: React.FC = () => {
             <button className="btn btn-primary" onClick={handleCreateAlert}>Create Alert Rule →</button>
           </div>
         </div>
-      </Modal>
+      </AlertModal>
     </>
   );
 };
