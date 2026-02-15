@@ -10,7 +10,17 @@ interface ModalProps {
 }
 
 const Modal: React.FC<ModalProps> = ({ show, onClose, children }) => {
-  if (!show) return null;
+  // Debug logging
+  console.log('🔍 [Modal Debug] Rendering Modal component, show:', show);
+
+  if (!show) {
+    console.log('❌ [Modal Debug] show=false, returning null (not rendering)');
+    return null;
+  }
+
+  console.log('✅ [Modal Debug] show=true, creating portal to document.body');
+  console.log('📍 [Modal Debug] document.body:', document.body);
+  console.log('👶 [Modal Debug] children:', children);
 
   return createPortal(
     <>

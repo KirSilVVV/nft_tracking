@@ -261,6 +261,17 @@ class AlertService {
     const rule = this.rules.get(ruleId);
     if (!rule || rule.status !== 'active') return false;
 
+    // Cooldown check: prevent spamming alerts
+    if (rule.lastTriggered) {
+      const cooldownPeriod = this.getCooldownPeriod(rule.type);
+      const timeSinceLastTrigger = Date.now() - rule.lastTriggered.getTime();
+
+      if (timeSinceLastTrigger < cooldownPeriod) {
+        // Still in cooldown period, don't trigger again
+        return false;
+      }
+    }
+
     let shouldTrigger = false;
 
     switch (rule.condition) {
@@ -291,6 +302,24 @@ class AlertService {
     // Update current value
     rule.currentValue = currentValue;
     return shouldTrigger;
+  }
+
+  /**
+   * Get cooldown period for alert type (in milliseconds)
+   */
+  private getCooldownPeriod(alertType: string): number {
+    switch (alertType) {
+      case 'price':
+        return 60 * 60 * 1000; // 1 hour for price alerts
+      case 'whale':
+        return 30 * 60 * 1000; // 30 minutes for whale alerts
+      case 'volume':
+        return 60 * 60 * 1000; // 1 hour for volume alerts
+      case 'listing':
+        return 30 * 60 * 1000; // 30 minutes for listing alerts
+      default:
+        return 60 * 60 * 1000; // Default 1 hour
+    }
   }
 
   /**
