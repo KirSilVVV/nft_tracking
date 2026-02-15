@@ -10,6 +10,7 @@ interface Transaction {
   to: string;
   timestamp: number;
   txHash: string;
+  blockNumber?: number;
   type: 'transfer' | 'sale' | 'mint';
   priceETH?: number;
   isWhaleTransaction?: boolean;
@@ -28,10 +29,12 @@ const Transactions: React.FC = () => {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'all' | 'sale' | 'transfer' | 'mint'>('all');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(20);
   const { showToast } = useToast();
 
   // WebSocket for real-time updates
-  const WS_URL = process.env.REACT_APP_WS_URL || 'ws://localhost:6255';
+  const WS_URL = process.env.REACT_APP_WS_URL || 'ws://localhost:6252/ws';
   const { isConnected, lastEvent } = useWebSocket(WS_URL);
 
   useEffect(() => {
@@ -83,6 +86,7 @@ const Transactions: React.FC = () => {
           to: '0x8Ba1f109551bD432803012645Ac136ddd64DBA72',
           timestamp: Math.floor(Date.now() / 1000) - 300,
           txHash: '0xabc123def456',
+          blockNumber: 19247865,
           type: 'sale',
           priceETH: 4.567,
           isWhaleTransaction: true,
@@ -95,6 +99,7 @@ const Transactions: React.FC = () => {
           to: '0x123456789abcdef123456789abcdef123456789a',
           timestamp: Math.floor(Date.now() / 1000) - 1200,
           txHash: '0xdef789ghi012',
+          blockNumber: 19247782,
           type: 'transfer',
           isWhaleTransaction: true,
           whaleFrom: true,
@@ -106,6 +111,7 @@ const Transactions: React.FC = () => {
           to: '0xAbCdEf123456789aBcDeF123456789AbCdEf1234',
           timestamp: Math.floor(Date.now() / 1000) - 3600,
           txHash: '0xmint123abc456',
+          blockNumber: 19247501,
           type: 'mint',
           isWhaleTransaction: false,
           whaleFrom: false,
@@ -117,6 +123,7 @@ const Transactions: React.FC = () => {
           to: '0x666666666666666666666666666666666666666',
           timestamp: Math.floor(Date.now() / 1000) - 7200,
           txHash: '0xsale999zzz888',
+          blockNumber: 19247220,
           type: 'sale',
           priceETH: 12.345,
           isWhaleTransaction: false,
@@ -129,6 +136,7 @@ const Transactions: React.FC = () => {
           to: '0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF',
           timestamp: Math.floor(Date.now() / 1000) - 10800,
           txHash: '0xwhale777mega888',
+          blockNumber: 19246940,
           type: 'transfer',
           isWhaleTransaction: true,
           whaleFrom: true,
@@ -147,6 +155,27 @@ const Transactions: React.FC = () => {
     if (filter === 'all') return true;
     return tx.type === filter;
   });
+
+  // Pagination logic
+  const totalPages = Math.ceil(filteredTransactions.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const paginatedTransactions = filteredTransactions.slice(startIndex, endIndex);
+
+  // Reset to page 1 when filter changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [filter]);
+
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleItemsPerPageChange = (value: number) => {
+    setItemsPerPage(value);
+    setCurrentPage(1);
+  };
 
   return (
     <div className="transactions-page">
@@ -204,22 +233,50 @@ const Transactions: React.FC = () => {
 
       {/* Transactions Table */}
       {!loading && filteredTransactions.length > 0 && (
+        <>
+          {/* Table Info Bar */}
+          <div className="table-info-bar">
+            <div className="table-info-left">
+              Showing {startIndex + 1}-{Math.min(endIndex, filteredTransactions.length)} of {filteredTransactions.length} transactions
+            </div>
+            <div className="table-info-right">
+              <label className="items-per-page-label">
+                Show:
+                <select
+                  className="items-per-page-select"
+                  value={itemsPerPage}
+                  onChange={(e) => handleItemsPerPageChange(Number(e.target.value))}
+                >
+                  <option value={10}>10</option>
+                  <option value={20}>20</option>
+                  <option value={50}>50</option>
+                  <option value={100}>100</option>
+                </select>
+              </label>
+            </div>
+          </div>
+        </>
+      )}
+
+      {!loading && paginatedTransactions.length > 0 && (
         <div className="transactions-container">
           <div className="transactions-table-wrapper">
             <table className="transactions-table">
               <colgroup>
-                <col style={{ width: '180px' }} />
-                <col style={{ width: '130px' }} />
-                <col style={{ width: '200px' }} />
-                <col style={{ width: '200px' }} />
                 <col style={{ width: '160px' }} />
+                <col style={{ width: '110px' }} />
                 <col style={{ width: '130px' }} />
-                <col style={{ width: '90px' }} />
+                <col style={{ width: '200px' }} />
+                <col style={{ width: '200px' }} />
+                <col style={{ width: '140px' }} />
+                <col style={{ width: '120px' }} />
+                <col style={{ width: '80px' }} />
               </colgroup>
               <thead>
                 <tr>
                   <th>TYPE</th>
                   <th>TOKEN ID</th>
+                  <th>BLOCK</th>
                   <th>FROM</th>
                   <th>TO</th>
                   <th style={{ textAlign: 'right' }}>PRICE</th>
@@ -228,12 +285,35 @@ const Transactions: React.FC = () => {
                 </tr>
               </thead>
               <tbody>
-                {filteredTransactions.map((tx, index) => (
+                {paginatedTransactions.map((tx, index) => (
                   <TransactionRow key={`${tx.txHash}-${index}`} tx={tx} />
                 ))}
               </tbody>
             </table>
           </div>
+
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div className="pagination">
+              <button
+                className="pagination-btn"
+                onClick={() => handlePageChange(currentPage - 1)}
+                disabled={currentPage === 1}
+              >
+                ← Previous
+              </button>
+              <div className="pagination-info">
+                Page {currentPage} of {totalPages}
+              </div>
+              <button
+                className="pagination-btn"
+                onClick={() => handlePageChange(currentPage + 1)}
+                disabled={currentPage === totalPages}
+              >
+                Next →
+              </button>
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -242,7 +322,14 @@ const Transactions: React.FC = () => {
 
 // Transaction Row Component
 const TransactionRow: React.FC<{ tx: Transaction }> = ({ tx }) => {
+  const { showToast } = useToast();
+
   const shortenAddress = (addr: string) => `${addr.slice(0, 6)}...${addr.slice(-4)}`;
+
+  const copyAddress = (addr: string, label: string) => {
+    navigator.clipboard.writeText(addr);
+    showToast(`${label} address copied: ${shortenAddress(addr)}`, 'success', 2000);
+  };
 
   const getTransactionType = (tx: Transaction): 'mint' | 'sale' | 'transfer' => {
     if (tx.from === '0x0000000000000000000000000000000000000000') return 'mint';
@@ -269,12 +356,55 @@ const TransactionRow: React.FC<{ tx: Transaction }> = ({ tx }) => {
         {tx.isWhaleTransaction && <span className="whale-badge" title="Whale transaction (20+ NFTs)">🐋</span>}
       </td>
       <td>#{tx.tokenId}</td>
-      <td title={tx.from}>
-        {shortenAddress(tx.from)}
+      <td>
+        {tx.blockNumber ? (
+          <a
+            href={`https://etherscan.io/block/${tx.blockNumber}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="block-link"
+            title="View block on Etherscan"
+          >
+            {tx.blockNumber.toLocaleString()}
+          </a>
+        ) : '—'}
+      </td>
+      <td className="address-cell">
+        <a
+          href={`https://etherscan.io/address/${tx.from}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="address-link"
+          title={tx.from}
+        >
+          {shortenAddress(tx.from)}
+        </a>
+        <button
+          className="copy-btn"
+          onClick={() => copyAddress(tx.from, 'From')}
+          title="Copy address"
+        >
+          📋
+        </button>
         {tx.whaleFrom && <span className="whale-indicator" title="Whale holder">🐋</span>}
       </td>
-      <td title={tx.to}>
-        {shortenAddress(tx.to)}
+      <td className="address-cell">
+        <a
+          href={`https://etherscan.io/address/${tx.to}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="address-link"
+          title={tx.to}
+        >
+          {shortenAddress(tx.to)}
+        </a>
+        <button
+          className="copy-btn"
+          onClick={() => copyAddress(tx.to, 'To')}
+          title="Copy address"
+        >
+          📋
+        </button>
         {tx.whaleTo && <span className="whale-indicator" title="Whale holder">🐋</span>}
       </td>
       <td style={{ textAlign: 'right' }}>

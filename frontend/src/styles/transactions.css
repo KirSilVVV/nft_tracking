@@ -285,6 +285,158 @@
   color: #F5A623;
 }
 
+/* Address Cell */
+.address-cell {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.address-link {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  color: var(--t2);
+  text-decoration: none;
+  transition: color 0.2s ease;
+}
+
+.address-link:hover {
+  color: var(--gold);
+  text-decoration: underline;
+}
+
+.copy-btn {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font-size: 12px;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  padding: 2px 4px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.address-cell:hover .copy-btn {
+  opacity: 0.6;
+}
+
+.copy-btn:hover {
+  opacity: 1 !important;
+}
+
+.copy-btn:active {
+  transform: scale(0.9);
+}
+
+.block-link {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  color: var(--t3);
+  text-decoration: none;
+  transition: color 0.2s ease;
+}
+
+.block-link:hover {
+  color: var(--gold);
+  text-decoration: underline;
+}
+
+/* Table Info Bar */
+.table-info-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 20px;
+  background: var(--bg);
+  border-bottom: 1px solid var(--border2);
+  font-size: 13px;
+  color: var(--t3);
+}
+
+.table-info-left {
+  font-weight: 500;
+}
+
+.table-info-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.items-per-page-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--t3);
+  cursor: pointer;
+}
+
+.items-per-page-select {
+  padding: 6px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--border2);
+  background: var(--card);
+  color: var(--t1);
+  font-size: 13px;
+  cursor: pointer;
+  outline: none;
+  transition: all 0.2s ease;
+}
+
+.items-per-page-select:hover {
+  border-color: var(--gold);
+}
+
+.items-per-page-select:focus {
+  border-color: var(--gold);
+  box-shadow: 0 0 0 2px rgba(245, 166, 35, 0.1);
+}
+
+/* Pagination */
+.pagination {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 16px;
+  padding: 20px;
+  background: var(--bg);
+  border-top: 1px solid var(--border2);
+}
+
+.pagination-btn {
+  padding: 8px 16px;
+  border-radius: 8px;
+  border: 1px solid var(--border2);
+  background: var(--card);
+  color: var(--t2);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.pagination-btn:hover:not(:disabled) {
+  background: var(--card-h);
+  border-color: var(--gold);
+  color: var(--gold);
+}
+
+.pagination-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.pagination-info {
+  font-size: 13px;
+  color: var(--t2);
+  font-weight: 500;
+  min-width: 100px;
+  text-align: center;
+}
+
 /* Responsive */
 @media (max-width: 768px) {
   .transactions-page {
@@ -300,5 +452,27 @@
   .tx-type-badge {
     font-size: 10px;
     padding: 3px 8px;
+  }
+
+  .table-info-bar {
+    flex-direction: column;
+    gap: 12px;
+    align-items: flex-start;
+    padding: 12px 16px;
+  }
+
+  .pagination {
+    gap: 12px;
+    padding: 16px;
+  }
+
+  .pagination-btn {
+    padding: 6px 12px;
+    font-size: 12px;
+  }
+
+  .pagination-info {
+    font-size: 12px;
+    min-width: 80px;
   }
 }
