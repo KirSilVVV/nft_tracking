@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import axios from 'axios';
 import { TransactionListSkeleton, EmptyState, Spinner } from './loading';
+import { useWebSocket } from '../hooks/useWebSocket';
 
 interface Transaction {
   tokenId: number;
@@ -22,13 +23,35 @@ const RecentTransactions: React.FC = () => {
   const [timeFilter, setTimeFilter] = useState(24);
   const [displayCount, setDisplayCount] = useState(PAGE_SIZE);
 
-  // Reset display count when time filter changes
+  // WebSocket for real-time transaction updates
+  const WS_URL = process.env.REACT_APP_WS_URL || 'ws://localhost:6252/ws';
+  const { lastEvent, isConnected } = useWebSocket(WS_URL);
+
+  // Initial fetch when time filter changes
   useEffect(() => {
     setDisplayCount(PAGE_SIZE);
     fetchTransactions(true);
-    const interval = setInterval(() => fetchTransactions(false), 30000);
-    return () => clearInterval(interval);
   }, [timeFilter]);
+
+  // Listen for new transaction events from WebSocket
+  useEffect(() => {
+    if (lastEvent && lastEvent.type === 'transaction:new' && lastEvent.data) {
+      const newTx: Transaction = {
+        tokenId: lastEvent.data.tokenId,
+        from: lastEvent.data.from,
+        to: lastEvent.data.to,
+        timestamp: lastEvent.data.timestamp,
+        txHash: lastEvent.data.txHash,
+        type: lastEvent.data.type || 'transfer',
+        priceETH: lastEvent.data.priceETH,
+      };
+
+      // Add new transaction to top of list (prepend)
+      setTransactions(prev => [newTx, ...prev]);
+      setTotalInWindow(prev => prev + 1);
+      console.log('🔄 New transaction received via WebSocket:', newTx);
+    }
+  }, [lastEvent]);
 
   const fetchTransactions = async (showLoading: boolean) => {
     if (showLoading) setLoading(true);
