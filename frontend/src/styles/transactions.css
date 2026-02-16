@@ -295,9 +295,10 @@
 .address-link {
   font-family: 'JetBrains Mono', monospace;
   font-size: 12px;
-  color: var(--t2);
+  color: #4E8EF7;
   text-decoration: none;
-  transition: color 0.2s ease;
+  transition: all 0.2s ease;
+  cursor: pointer;
 }
 
 .address-link:hover {
@@ -306,24 +307,25 @@
 }
 
 .copy-btn {
-  background: transparent;
-  border: none;
+  background: rgba(78, 142, 247, 0.1);
+  border: 1px solid rgba(78, 142, 247, 0.3);
+  border-radius: 4px;
   cursor: pointer;
-  font-size: 12px;
-  opacity: 0;
-  transition: opacity 0.2s ease;
-  padding: 2px 4px;
+  font-size: 11px;
+  opacity: 0.7;
+  transition: all 0.2s ease;
+  padding: 2px 6px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-}
-
-.address-cell:hover .copy-btn {
-  opacity: 0.6;
+  margin-left: 4px;
 }
 
 .copy-btn:hover {
-  opacity: 1 !important;
+  opacity: 1;
+  background: rgba(78, 142, 247, 0.2);
+  border-color: #4E8EF7;
+  transform: scale(1.05);
 }
 
 .copy-btn:active {

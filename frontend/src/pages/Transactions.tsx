@@ -263,20 +263,18 @@ const Transactions: React.FC = () => {
           <div className="transactions-table-wrapper">
             <table className="transactions-table">
               <colgroup>
-                <col style={{ width: '160px' }} />
-                <col style={{ width: '110px' }} />
-                <col style={{ width: '130px' }} />
-                <col style={{ width: '200px' }} />
-                <col style={{ width: '200px' }} />
-                <col style={{ width: '140px' }} />
+                <col style={{ width: '180px' }} />
                 <col style={{ width: '120px' }} />
-                <col style={{ width: '80px' }} />
+                <col style={{ width: '240px' }} />
+                <col style={{ width: '240px' }} />
+                <col style={{ width: '140px' }} />
+                <col style={{ width: '130px' }} />
+                <col style={{ width: '90px' }} />
               </colgroup>
               <thead>
                 <tr>
                   <th>TYPE</th>
                   <th>TOKEN ID</th>
-                  <th>BLOCK</th>
                   <th>FROM</th>
                   <th>TO</th>
                   <th style={{ textAlign: 'right' }}>PRICE</th>
@@ -356,19 +354,6 @@ const TransactionRow: React.FC<{ tx: Transaction }> = ({ tx }) => {
         {tx.isWhaleTransaction && <span className="whale-badge" title="Whale transaction (20+ NFTs)">🐋</span>}
       </td>
       <td>#{tx.tokenId}</td>
-      <td>
-        {tx.blockNumber ? (
-          <a
-            href={`https://etherscan.io/block/${tx.blockNumber}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="block-link"
-            title="View block on Etherscan"
-          >
-            {tx.blockNumber.toLocaleString()}
-          </a>
-        ) : '—'}
-      </td>
       <td className="address-cell">
         <a
           href={`https://etherscan.io/address/${tx.from}`}
