@@ -78,74 +78,9 @@ const Transactions: React.FC = () => {
     } catch (err) {
       console.error('Failed to fetch transactions:', err);
 
-      // Mock data for testing table alignment
-      const mockTransactions: Transaction[] = [
-        {
-          tokenId: 12345,
-          from: '0x742d35Cc6634C0532925a3b844Bc454e4438f44e',
-          to: '0x8Ba1f109551bD432803012645Ac136ddd64DBA72',
-          timestamp: Math.floor(Date.now() / 1000) - 300,
-          txHash: '0xabc123def456',
-          blockNumber: 19247865,
-          type: 'sale',
-          priceETH: 4.567,
-          isWhaleTransaction: true,
-          whaleFrom: true,
-          whaleTo: false,
-        },
-        {
-          tokenId: 8901,
-          from: '0x29469395eAf6f95920E59F858042f0e28D98a20B',
-          to: '0x123456789abcdef123456789abcdef123456789a',
-          timestamp: Math.floor(Date.now() / 1000) - 1200,
-          txHash: '0xdef789ghi012',
-          blockNumber: 19247782,
-          type: 'transfer',
-          isWhaleTransaction: true,
-          whaleFrom: true,
-          whaleTo: false,
-        },
-        {
-          tokenId: 3456,
-          from: '0x0000000000000000000000000000000000000000',
-          to: '0xAbCdEf123456789aBcDeF123456789AbCdEf1234',
-          timestamp: Math.floor(Date.now() / 1000) - 3600,
-          txHash: '0xmint123abc456',
-          blockNumber: 19247501,
-          type: 'mint',
-          isWhaleTransaction: false,
-          whaleFrom: false,
-          whaleTo: false,
-        },
-        {
-          tokenId: 7777,
-          from: '0x555555555555555555555555555555555555555',
-          to: '0x666666666666666666666666666666666666666',
-          timestamp: Math.floor(Date.now() / 1000) - 7200,
-          txHash: '0xsale999zzz888',
-          blockNumber: 19247220,
-          type: 'sale',
-          priceETH: 12.345,
-          isWhaleTransaction: false,
-          whaleFrom: false,
-          whaleTo: false,
-        },
-        {
-          tokenId: 1001,
-          from: '0x29A1D37d588608bbA9ddD5DD4dc3f99d0B5C088e',
-          to: '0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF',
-          timestamp: Math.floor(Date.now() / 1000) - 10800,
-          txHash: '0xwhale777mega888',
-          blockNumber: 19246940,
-          type: 'transfer',
-          isWhaleTransaction: true,
-          whaleFrom: true,
-          whaleTo: false,
-        },
-      ];
-
-      setTransactions(mockTransactions);
-      showToast('Loaded 5 mock transactions (backend unavailable)', 'warning');
+      // Don't use mock data - show honest error state
+      setTransactions([]);
+      showToast('Failed to load transactions. Backend may be unavailable.', 'error');
     } finally {
       setLoading(false);
     }

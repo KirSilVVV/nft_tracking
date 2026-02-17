@@ -12,6 +12,10 @@ import { getEnrichmentService } from './services/enrichment.service';
 import { getENSService } from './services/ens.service';
 import { getImageSearchService } from './services/image-search.service';
 import { getAlchemySDKProvider } from './providers/alchemy-sdk.provider';
+// import { getDatabaseProvider } from './providers/database.provider'; // Not used - using Supabase client instead
+import { getSupabaseClient } from './providers/supabase-client.provider';
+import { getDatabaseSupabaseService } from './services/database-supabase.service';
+// import { runMigrations } from './utils/migrations'; // Not needed - tables created via SQL Editor
 import { logger } from './utils/logger';
 import { sleep } from './utils/helpers';
 import * as authController from './controllers/auth.controller';
@@ -106,7 +110,7 @@ class App {
           logger.info(`Floor price from Alchemy/OpenSea API: ${floorPrice} ETH`);
         } catch (floorError) {
           logger.warn(`Failed to get floor price: ${(floorError as any)?.message}`);
-          floorPrice = 0.025; // Fallback floor price
+          floorPrice = null; // Return null instead of fake data
         }
 
         // Batch ENS enrichment
@@ -144,6 +148,10 @@ class App {
         } catch (balanceError) {
           logger.warn(`ETH balance fetch failed, continuing without: ${(balanceError as any)?.message}`);
         }
+
+        // Add data source headers
+        res.setHeader('X-Data-Source', 'blockchain');
+        res.setHeader('X-Last-Updated', new Date().toISOString());
 
         return res.json({
           whales: topWhales.map((w, idx) => {
@@ -282,7 +290,11 @@ class App {
         const whale90Concentration = (topWhales.slice(0, Math.min(10, topWhales.length)).reduce((sum, h) => sum + h.count, 0) / totalNFTs) * 100;
 
         res.json({
-          topWhales: [],
+          topWhales: topWhales.map(w => ({
+            address: w.address,
+            nftCount: w.count,
+            rank: allHolders.sort((a, b) => b.count - a.count).findIndex(h => h.address === w.address) + 1,
+          })), // ✅ FIXED: Return actual top whales data
           distribution,
           statistics: {
             totalHolders: allHolders.length,
@@ -767,11 +779,16 @@ class App {
           priceMap.set(sale.tokenId, sale.priceETH);
         });
 
-        // Get whale addresses (20+ NFTs threshold)
-        const allHolders = analyticsService.buildHoldersList(allEvents);
-        const whaleHolders = analyticsService.getTopHolders(allHolders, 9999).filter((h: any) => h.count >= 20);
-        const whaleAddresses = new Set(whaleHolders.map((w: any) => w.address.toLowerCase()));
-        logger.info(`✅ Identified ${whaleAddresses.size} whale addresses (20+ NFTs)`);
+        // Get whale addresses (20+ NFTs threshold) - use ACCURATE current holder data from Alchemy
+        const MAYC_CONTRACT = '0x60E4d786628Fea6478F785A6d7e704777c86a7c6';
+        const WHALE_THRESHOLD = 20;
+        const ownersData = await alchemySDK.getOwnersForContractWithTokenCount(MAYC_CONTRACT);
+        const whaleAddresses = new Set(
+          ownersData
+            .filter(owner => owner.tokenBalance >= WHALE_THRESHOLD)
+            .map(owner => owner.address.toLowerCase())
+        );
+        logger.info(`✅ Identified ${whaleAddresses.size} whale addresses (${WHALE_THRESHOLD}+ NFTs)`);
 
         // Filter events within time window
         const now = Math.floor(Date.now() / 1000);
@@ -1125,6 +1142,102 @@ class App {
           logger.error('Error updating enriched whales', error);
         }
       }, 60 * 60 * 1000); // 1 hour
+
+      // EPIC 4.3: Save analytics snapshots to DB every hour (for trends)
+      setInterval(async () => {
+        try {
+          logger.info('💾 Saving analytics snapshot to database...');
+          const databaseService = getDatabaseSupabaseService();
+          const alchemyProvider = getAlchemySDKProvider();
+          const MAYC_CONTRACT = '0x60E4d786628Fea6478F785A6d7e704777c86a7c6';
+
+          // Get current analytics data
+          const ownersData = await alchemyProvider.getOwnersForContractWithTokenCount(MAYC_CONTRACT);
+          const allHolders = ownersData.map(owner => ({
+            address: owner.address,
+            count: owner.tokenBalance,
+          }));
+
+          // Calculate distribution
+          const distribution = {
+            single: allHolders.filter(h => h.count === 1).length,
+            small: allHolders.filter(h => h.count >= 2 && h.count <= 4).length,
+            medium: allHolders.filter(h => h.count >= 5 && h.count <= 19).length,
+            large: allHolders.filter(h => h.count >= 20 && h.count <= 99).length,
+            whales: allHolders.filter(h => h.count >= 100).length,
+          };
+
+          // Get floor price
+          const floorPriceData = await alchemyProvider.getFloorPrice(MAYC_CONTRACT);
+
+          // Get 24h volume and sales (from transfer events)
+          const events = await blockchainService.getAllTransferEvents(0);
+          const recent24h = analyticsService.getTransactionsInWindow(events, 24);
+          const volume24h = recent24h.reduce((sum: number, tx: any) => sum + (tx.priceETH || 0), 0);
+          const sales24h = recent24h.filter((tx: any) => tx.priceETH && tx.priceETH > 0).length;
+
+          // Save snapshot
+          await databaseService.saveSnapshot({
+            timestamp: new Date(),
+            total_holders: allHolders.length,
+            floor_price: floorPriceData || 0,
+            volume_24h: volume24h,
+            sales_24h: sales24h,
+            whale_count: distribution.whales,
+            whale_threshold: 100,
+            distribution,
+          });
+
+          logger.info(`✅ Snapshot saved: ${allHolders.length} holders, ${distribution.whales} whales`);
+        } catch (error) {
+          logger.error('Error saving analytics snapshot', error);
+        }
+      }, 60 * 60 * 1000); // 1 hour
+
+      // Save initial snapshot immediately
+      setTimeout(async () => {
+        try {
+          logger.info('💾 Saving initial analytics snapshot...');
+          const databaseService = getDatabaseSupabaseService();
+          const alchemyProvider = getAlchemySDKProvider();
+          const MAYC_CONTRACT = '0x60E4d786628Fea6478F785A6d7e704777c86a7c6';
+
+          const ownersData = await alchemyProvider.getOwnersForContractWithTokenCount(MAYC_CONTRACT);
+          const allHolders = ownersData.map(owner => ({
+            address: owner.address,
+            count: owner.tokenBalance,
+          }));
+
+          const distribution = {
+            single: allHolders.filter(h => h.count === 1).length,
+            small: allHolders.filter(h => h.count >= 2 && h.count <= 4).length,
+            medium: allHolders.filter(h => h.count >= 5 && h.count <= 19).length,
+            large: allHolders.filter(h => h.count >= 20 && h.count <= 99).length,
+            whales: allHolders.filter(h => h.count >= 100).length,
+          };
+
+          const floorPriceData = await alchemyProvider.getFloorPrice(MAYC_CONTRACT);
+          const events = await blockchainService.getAllTransferEvents(0);
+          const recent24h = analyticsService.getTransactionsInWindow(events, 24);
+          const volume24h = recent24h.reduce((sum: number, tx: any) => sum + (tx.priceETH || 0), 0);
+          const sales24h = recent24h.filter((tx: any) => tx.priceETH && tx.priceETH > 0).length;
+
+          await databaseService.saveSnapshot({
+            timestamp: new Date(),
+            total_holders: allHolders.length,
+            floor_price: floorPriceData || 0,
+            volume_24h: volume24h,
+            sales_24h: sales24h,
+            whale_count: distribution.whales,
+            whale_threshold: 100,
+            distribution,
+          });
+
+          logger.info('✅ Initial snapshot saved');
+        } catch (error) {
+          logger.error('Error saving initial snapshot', error);
+        }
+      }, 10000); // 10 seconds after startup
     } catch (error) {
       logger.error('Failed to start blockchain monitoring', error);
     }
@@ -1135,6 +1248,19 @@ class App {
    */
   async start(): Promise<void> {
     try {
+      // EPIC 4.1: Initialize Supabase client (tables already created via SQL Editor)
+      logger.info('Initializing Supabase database connection...');
+      const supabaseClient = getSupabaseClient();
+      const dbService = getDatabaseSupabaseService();
+
+      // Test connection
+      const isHealthy = await supabaseClient.healthCheck();
+      if (isHealthy) {
+        logger.info('✅ Supabase database connected and ready');
+      } else {
+        logger.warn('⚠️  Supabase database health check failed, but continuing...');
+      }
+
       this.initializeMiddleware();
       this.initializeRoutes();
       this.initializeWebSocket();
