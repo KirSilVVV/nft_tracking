@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useToast } from '../contexts/ToastContext';
 import { Spinner } from '../components/loading';
 import { useWebSocket } from '../hooks/useWebSocket';
+import ErrorState from '../components/ErrorState';
 import '../styles/transactions.css';
 
 interface Transaction {
@@ -28,6 +29,8 @@ interface TransactionsResponse {
 const Transactions: React.FC = () => {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
+  const [isRetrying, setIsRetrying] = useState(false);
   const [filter, setFilter] = useState<'all' | 'sale' | 'transfer' | 'mint'>('all');
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(20);
@@ -70,8 +73,14 @@ const Transactions: React.FC = () => {
   const fetchTransactions = async () => {
     try {
       setLoading(true);
+      setError(false);
       const baseUrl = process.env.REACT_APP_API_URL?.replace('/api/whales', '') ?? '';
       const response = await fetch(`${baseUrl}/api/transactions/recent?limit=100`);
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+
       const data: TransactionsResponse = await response.json();
       setTransactions(data.transactions || []);
       showToast(`Loaded ${data.count} recent transactions`, 'success');
@@ -79,11 +88,18 @@ const Transactions: React.FC = () => {
       console.error('Failed to fetch transactions:', err);
 
       // Don't use mock data - show honest error state
+      setError(true);
       setTransactions([]);
       showToast('Failed to load transactions. Backend may be unavailable.', 'error');
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleRetry = async () => {
+    setIsRetrying(true);
+    await fetchTransactions();
+    setIsRetrying(false);
   };
 
   const filteredTransactions = transactions.filter((tx) => {
@@ -157,8 +173,18 @@ const Transactions: React.FC = () => {
         </div>
       )}
 
+      {/* Error State */}
+      {!loading && error && (
+        <ErrorState
+          title="Transactions Unavailable"
+          message="Unable to fetch recent transactions from the blockchain. This could be due to network issues, API rate limits, or backend unavailability."
+          onRetry={handleRetry}
+          retrying={isRetrying}
+        />
+      )}
+
       {/* Empty State */}
-      {!loading && filteredTransactions.length === 0 && (
+      {!loading && !error && filteredTransactions.length === 0 && (
         <div className="empty-state">
           <div className="empty-icon">📭</div>
           <h3>No {filter !== 'all' ? filter : ''} transactions found</h3>
@@ -167,7 +193,7 @@ const Transactions: React.FC = () => {
       )}
 
       {/* Transactions Table */}
-      {!loading && filteredTransactions.length > 0 && (
+      {!loading && !error && filteredTransactions.length > 0 && (
         <>
           {/* Table Info Bar */}
           <div className="table-info-bar">
@@ -193,7 +219,7 @@ const Transactions: React.FC = () => {
         </>
       )}
 
-      {!loading && paginatedTransactions.length > 0 && (
+      {!loading && !error && paginatedTransactions.length > 0 && (
         <div className="transactions-container">
           <div className="transactions-table-wrapper">
             <table className="transactions-table">

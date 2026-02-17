@@ -1,0 +1,44 @@
+/* DataFreshness Component Styles */
+
+.data-freshness {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  transition: all 0.2s ease;
+}
+
+/* Fresh blockchain data - green */
+.data-freshness.fresh {
+  background: rgba(52, 211, 153, 0.15);
+  color: #34D399;
+  border: 1px solid rgba(52, 211, 153, 0.3);
+}
+
+/* Cached data - yellow/orange */
+.data-freshness.cache {
+  background: rgba(245, 166, 35, 0.15);
+  color: #F5A623;
+  border: 1px solid rgba(245, 166, 35, 0.3);
+}
+
+/* Error state - red */
+.data-freshness.error {
+  background: rgba(239, 68, 68, 0.15);
+  color: #EF4444;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+.data-freshness-text {
+  white-space: nowrap;
+}
+
+/* Hover effect */
+.data-freshness:hover {
+  transform: scale(1.02);
+  opacity: 0.9;
+}

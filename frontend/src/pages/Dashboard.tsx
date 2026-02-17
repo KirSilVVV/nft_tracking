@@ -5,14 +5,42 @@ import { useAnalytics, useTopWhales } from '../hooks/useWhales';
 import BarChart from '../components/chartjs/BarChart';
 import PieChart from '../components/chartjs/PieChart';
 import { DashboardSkeleton, Spinner } from '../components/loading';
+import DataFreshness from '../components/DataFreshness';
+import ErrorState from '../components/ErrorState';
 import '../styles/dashboard.css';
 
 const Dashboard: React.FC = () => {
-  const { data: analyticsData, isLoading: analyticsLoading } = useAnalytics();
-  const { data: whalesData, isLoading: whalesLoading } = useTopWhales(50);
+  const {
+    data: analyticsData,
+    isLoading: analyticsLoading,
+    isError: analyticsError,
+    dataUpdatedAt: analyticsUpdatedAt,
+    refetch: refetchAnalytics,
+  } = useAnalytics();
+
+  const {
+    data: whalesData,
+    isLoading: whalesLoading,
+    isError: whalesError,
+    dataUpdatedAt: whalesUpdatedAt,
+    refetch: refetchWhales,
+  } = useTopWhales(50);
+
+  const [isRetrying, setIsRetrying] = useState(false);
 
   const [selectedPeriod, setSelectedPeriod] = useState('24H');
-  const [showAIBar, setShowAIBar] = useState(true);
+
+  // Retry handler for both analytics and whales data
+  const handleRetry = async () => {
+    setIsRetrying(true);
+    try {
+      await Promise.all([refetchAnalytics(), refetchWhales()]);
+    } catch (error) {
+      console.error('Retry failed:', error);
+    } finally {
+      setIsRetrying(false);
+    }
+  };
 
   // Real data from API
   const holderDistributionData = [
@@ -52,24 +80,67 @@ const Dashboard: React.FC = () => {
     );
   }
 
+  // Show error state if both APIs failed
+  if (analyticsError && whalesError) {
+    return (
+      <div className="dashboard-container">
+        <ErrorState
+          title="Analytics Dashboard Unavailable"
+          message="Unable to fetch analytics and whale data from the blockchain. This could be due to network issues, API rate limits, or backend unavailability."
+          onRetry={handleRetry}
+          retrying={isRetrying}
+        />
+      </div>
+    );
+  }
+
+  // Show partial error if only one API failed
+  if (analyticsError) {
+    return (
+      <div className="dashboard-container">
+        <ErrorState
+          title="Analytics Data Unavailable"
+          message="Unable to fetch collection analytics. Whale data is still available on the Whales page."
+          onRetry={handleRetry}
+          retrying={isRetrying}
+        />
+      </div>
+    );
+  }
+
+  if (whalesError) {
+    return (
+      <div className="dashboard-container">
+        <ErrorState
+          title="Whale Data Unavailable"
+          message="Unable to fetch whale holder data. Collection analytics are still available below."
+          onRetry={handleRetry}
+          retrying={isRetrying}
+        />
+      </div>
+    );
+  }
+
   const totalHolders = analyticsData?.totalHolders || 0;
   const whales = analyticsData?.distribution?.whales || 0;
   const floorPrice = whalesData?.floorPrice || 0;
   const volume24h = analyticsData?.volume24h || 0;
 
+  // Determine data freshness - use oldest timestamp to show worst-case
+  const oldestUpdate = Math.min(analyticsUpdatedAt || Date.now(), whalesUpdatedAt || Date.now());
+  const dataAge = Date.now() - oldestUpdate;
+  const dataSource = dataAge > 60000 ? 'cache' : 'blockchain'; // Consider cached if older than 1 min
+
   return (
     <div className="dashboard-container">
-      {/* AI INSIGHT BAR */}
-      {showAIBar && (
-        <div className="ai-bar">
-          <div className="ai-bar-icon">🤖</div>
-          <div className="ai-bar-text">
-            <strong>AI Insight:</strong> Whale wallet <strong>pranksy.eth</strong> accumulated 12 more MAYC in the last 6 hours.
-            This pattern preceded a 15% floor price increase in 3 of the last 5 similar events. <a href="#analysis">View analysis →</a>
-          </div>
-          <div className="ai-bar-dismiss" onClick={() => setShowAIBar(false)}>✕</div>
-        </div>
-      )}
+      {/* DATA FRESHNESS INDICATOR */}
+      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '12px' }}>
+        <DataFreshness
+          dataSource={dataSource as 'blockchain' | 'cache'}
+          lastUpdated={new Date(oldestUpdate).toISOString()}
+          compact={false}
+        />
+      </div>
 
       {/* COLLECTION BAR + PERIOD */}
       <div className="collection-bar">
@@ -96,8 +167,7 @@ const Dashboard: React.FC = () => {
           <div className="label"><span className="icon">👥</span> Total Holders</div>
           <div className="value">{totalHolders.toLocaleString()}</div>
           <div className="meta">
-            <span className="trend" style={{ color: 'var(--ok)' }}>↑ +124</span>
-            <span className="subtext">vs yesterday</span>
+            <span className="subtext" style={{ color: 'var(--t3)' }}>Unique wallet addresses</span>
           </div>
         </div>
 
@@ -105,8 +175,7 @@ const Dashboard: React.FC = () => {
           <div className="label"><span className="icon">💎</span> Floor Price</div>
           <div className="value">{floorPrice.toFixed(2)} <span style={{ fontSize: '16px', color: 'var(--t2)' }}>ETH</span></div>
           <div className="meta">
-            <span className="trend" style={{ color: 'var(--ok)' }}>↑ +5.2%</span>
-            <span className="subtext">${(floorPrice * 3088).toLocaleString()}</span>
+            <span className="subtext">${(floorPrice * 3088).toLocaleString()} USD</span>
           </div>
         </div>
 
@@ -114,8 +183,7 @@ const Dashboard: React.FC = () => {
           <div className="label"><span className="icon">📊</span> Volume (24h)</div>
           <div className="value">{volume24h} <span style={{ fontSize: '16px', color: 'var(--t2)' }}>ETH</span></div>
           <div className="meta">
-            <span className="trend" style={{ color: 'var(--no)' }}>↓ -12%</span>
-            <span className="subtext">$1.06M</span>
+            <span className="subtext">${(volume24h * 3088).toLocaleString()} USD</span>
           </div>
         </div>
 
@@ -123,8 +191,7 @@ const Dashboard: React.FC = () => {
           <div className="label"><span className="icon">🐋</span> Active Whales</div>
           <div className="value">{whales}</div>
           <div className="meta">
-            <span className="trend" style={{ color: 'var(--ok)' }}>↑ +3 new</span>
-            <span className="subtext">holding 10+ NFTs</span>
+            <span className="subtext" style={{ color: 'var(--t3)' }}>Holders with 100+ NFTs</span>
           </div>
         </div>
       </div>
@@ -164,8 +231,7 @@ const Dashboard: React.FC = () => {
                 <th>Wallet</th>
                 <th>NFTs</th>
                 <th>% Collection</th>
-                <th>24h Change</th>
-                <th>P/L</th>
+                <th>Est. Value (ETH)</th>
                 <th></th>
               </tr>
             </thead>
@@ -194,13 +260,8 @@ const Dashboard: React.FC = () => {
                       {whale.percentageOfCollection?.toFixed(2)}%
                     </span>
                   </td>
-                  <td>
-                    <span className={`tag ${idx % 3 === 0 ? 'tag-up' : idx % 3 === 1 ? 'tag-neutral' : 'tag-down'}`}>
-                      {idx % 3 === 0 ? `+${Math.floor(Math.random() * 10) + 1} ↑` : idx % 3 === 1 ? '0' : `-${Math.floor(Math.random() * 5) + 1} ↓`}
-                    </span>
-                  </td>
-                  <td style={{ color: 'var(--ok)', fontFamily: "'JetBrains Mono', monospace", fontSize: '12px' }}>
-                    +${(Math.random() * 2 + 0.5).toFixed(1)}M
+                  <td style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '12px', color: 'var(--t1)' }}>
+                    {(whale.nftCount * floorPrice).toFixed(1)}
                   </td>
                   <td><button className="view-btn">View →</button></td>
                 </tr>
@@ -212,7 +273,7 @@ const Dashboard: React.FC = () => {
         {/* ACTIVITY FEED */}
         <div className="chart-card">
           <div className="chart-title">Recent Activity</div>
-          <div className="chart-subtitle">Live transaction feed</div>
+          <div className="chart-subtitle">UI Demo · Real-time feed coming in EPIC 3.3 (WebSocket)</div>
           <div className="activity-feed">
             <div className="activity-item">
               <div className="activity-type at-buy">🟢</div>
